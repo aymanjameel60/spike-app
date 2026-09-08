@@ -67,7 +67,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     return '${value.toStringAsFixed(2)} $symbol'.trim();
   }
 
-  String _asset(String raw) => raw.startsWith('/uploads/') ? '${ApiConfig.assetBaseUrl}$raw' : raw;
+  String _asset(String raw) => ApiConfig.resolveMedia(raw);
 
   void _openBanner(Map<String, dynamic> b) {
     final type = '${b['target_type'] ?? ''}';

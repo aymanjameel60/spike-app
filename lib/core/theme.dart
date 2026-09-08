@@ -9,6 +9,11 @@ const spikeMuted=Color(0xFFA9A9A9);
 const spikeDarkBg=Color(0xFF111111);
 const spikeDarkPanel=Color(0xFF1D1D1D);
 
+/// Styles that replace the ambient default (button themes, snack bar, input
+/// hints) must carry the app font family; Material swaps DefaultTextStyle
+/// wholesale, so a raw TextStyle here would fall back to the system font.
+TextStyle spikeTextStyle({double? fontSize,FontWeight? fontWeight,Color? color})=>const TextStyle(fontFamily:'GraphikArabic',fontFamilyFallback:['Tahoma','Arial']).copyWith(fontSize:fontSize,fontWeight:fontWeight,color:color);
+
 /// Pixel-matched spacing tokens from the reference customer frontend.
 abstract final class SpikeSpacing {
   static const double xs=4;
@@ -62,17 +67,17 @@ ThemeData _theme(Brightness brightness){
       filled:true,
       fillColor:field,
       contentPadding:const EdgeInsets.symmetric(horizontal:14,vertical:8),
-      hintStyle:const TextStyle(color:spikeMuted,fontSize:12,fontWeight:FontWeight.w700),
-      labelStyle:TextStyle(color:onSurface.withValues(alpha:.70),fontSize:12,fontWeight:FontWeight.w700),
+      hintStyle:spikeTextStyle(color:spikeMuted,fontSize:12,fontWeight:FontWeight.w700),
+      labelStyle:spikeTextStyle(color:onSurface.withValues(alpha:.70),fontSize:12,fontWeight:FontWeight.w700),
       enabledBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(SpikeRadius.control),borderSide:BorderSide.none),
       focusedBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(SpikeRadius.control),borderSide:const BorderSide(color:spikeRed,width:1.2)),
       errorBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(SpikeRadius.control),borderSide:const BorderSide(color:spikeRed)),
       focusedErrorBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(SpikeRadius.control),borderSide:const BorderSide(color:spikeRed,width:1.2)),
     ),
-    filledButtonTheme:FilledButtonThemeData(style:FilledButton.styleFrom(minimumSize:const Size(0,38),padding:const EdgeInsets.symmetric(horizontal:20),textStyle:const TextStyle(fontSize:12,fontWeight:FontWeight.w700),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(SpikeRadius.control)))),
-    outlinedButtonTheme:OutlinedButtonThemeData(style:OutlinedButton.styleFrom(minimumSize:const Size(0,38),padding:const EdgeInsets.symmetric(horizontal:16),textStyle:const TextStyle(fontSize:12,fontWeight:FontWeight.w700),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(SpikeRadius.control)))),
-    textButtonTheme:TextButtonThemeData(style:TextButton.styleFrom(textStyle:const TextStyle(fontSize:12,fontWeight:FontWeight.w500))),
-    snackBarTheme:SnackBarThemeData(backgroundColor:dark?Colors.white:Colors.black,contentTextStyle:TextStyle(color:dark?Colors.black:Colors.white,fontSize:12,fontWeight:FontWeight.w700),behavior:SnackBarBehavior.floating,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(SpikeRadius.control))),
+    filledButtonTheme:FilledButtonThemeData(style:FilledButton.styleFrom(minimumSize:const Size(0,38),padding:const EdgeInsets.symmetric(horizontal:20),textStyle:spikeTextStyle(fontSize:12,fontWeight:FontWeight.w700),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(SpikeRadius.control)))),
+    outlinedButtonTheme:OutlinedButtonThemeData(style:OutlinedButton.styleFrom(minimumSize:const Size(0,38),padding:const EdgeInsets.symmetric(horizontal:16),textStyle:spikeTextStyle(fontSize:12,fontWeight:FontWeight.w700),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(SpikeRadius.control)))),
+    textButtonTheme:TextButtonThemeData(style:TextButton.styleFrom(textStyle:spikeTextStyle(fontSize:12,fontWeight:FontWeight.w500))),
+    snackBarTheme:SnackBarThemeData(backgroundColor:dark?Colors.white:Colors.black,contentTextStyle:spikeTextStyle(color:dark?Colors.black:Colors.white,fontSize:12,fontWeight:FontWeight.w700),behavior:SnackBarBehavior.floating,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(SpikeRadius.control))),
   );
 }
 

@@ -1,11 +1,8 @@
 import '../core/api_config.dart';
 
 String? _absoluteImage(Object? value) {
-  final raw = '${value ?? ''}'.trim();
-  if (raw.isEmpty) return null;
-  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-  if (raw.startsWith('/uploads/')) return '${ApiConfig.assetBaseUrl}$raw';
-  return raw;
+  final resolved = ApiConfig.resolveMedia('${value ?? ''}');
+  return resolved.isEmpty ? null : resolved;
 }
 
 class ProductVariant {

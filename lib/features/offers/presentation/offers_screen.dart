@@ -184,40 +184,42 @@ class _OffersScreenState extends ConsumerState<OffersScreen> {
               height: 60,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 17),
-                child: Stack(alignment: Alignment.center, children: [
-                  const Text('العروض والخصومات', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: SizedBox(
-                      width: 50,
-                      height: 40,
-                      child: Material(
-                        color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
+                child: Row(children: [
+                  SizedBox(
+                    width: 50,
+                    height: 40,
+                    child: Material(
+                      color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
+                      borderRadius: BorderRadius.circular(22),
+                      child: InkWell(
+                        onTap: () => context.canPop() ? context.pop() : context.go('/'),
                         borderRadius: BorderRadius.circular(22),
-                        child: InkWell(
-                          onTap: () => context.canPop() ? context.pop() : context.go('/'),
-                          borderRadius: BorderRadius.circular(22),
-                          child: const Icon(LucideIcons.arrowRight, size: 23),
-                        ),
+                        child: const Icon(LucideIcons.arrowRight, size: 23),
                       ),
                     ),
                   ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Material(
-                      color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('العروض والخصومات', maxLines: 1, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ),
+                  Material(
+                    color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
+                    borderRadius: BorderRadius.circular(20),
+                    child: InkWell(
+                      onTap: _filters,
                       borderRadius: BorderRadius.circular(20),
-                      child: InkWell(
-                        onTap: _filters,
-                        borderRadius: BorderRadius.circular(20),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(LucideIcons.slidersHorizontal, size: 16),
-                            SizedBox(width: 6),
-                            Text('ترتيب حسب', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                          ]),
-                        ),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(LucideIcons.slidersHorizontal, size: 16),
+                          SizedBox(width: 6),
+                          Text('ترتيب حسب', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                        ]),
                       ),
                     ),
                   ),

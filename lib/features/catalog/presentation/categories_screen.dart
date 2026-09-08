@@ -67,7 +67,7 @@ class CategoriesScreen extends ConsumerWidget {
                                     : CachedNetworkImage(imageUrl: c.imageUrl!, fit: BoxFit.cover, errorWidget: (_, __, ___) => Icon(LucideIcons.image, color: mutedIcon)),
                               ),
                               const SizedBox(height: 7),
-                              Text(c.name, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.2)),
+                              Text(c.name, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 1.2)),
                             ]),
                           );
                         },

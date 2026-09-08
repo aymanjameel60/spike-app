@@ -11,11 +11,8 @@ class StoreModel {
   final int reviewCount;
 
   static String? _asset(dynamic value) {
-    final raw = '${value ?? ''}'.trim();
-    if (raw.isEmpty) return null;
-    if (raw.startsWith('http')) return raw;
-    if (raw.startsWith('/uploads/')) return '${ApiConfig.assetBaseUrl}$raw';
-    return raw;
+    final resolved = ApiConfig.resolveMedia('${value ?? ''}');
+    return resolved.isEmpty ? null : resolved;
   }
 
   factory StoreModel.fromJson(Map<String, dynamic> j) {

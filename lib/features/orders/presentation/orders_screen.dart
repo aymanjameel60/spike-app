@@ -126,7 +126,7 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
   String? reviewBusyId;
   String? storeReviewBusyId;
 
-  String _asset(String raw) => raw.startsWith('/uploads/') ? '${ApiConfig.assetBaseUrl}$raw' : raw;
+  String _asset(String raw) => ApiConfig.resolveMedia(raw);
 
   Future<void> _receipt() async {
     final x = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 88, maxWidth: 1800);

@@ -33,4 +33,4 @@ class BannerItem {
   }
 }
 
-String _imageUrl(Map<String, dynamic> json) { final raw = '${json['image_url'] ?? json['image'] ?? json['mobile_image_url'] ?? json['desktop_image_url'] ?? ''}'.trim(); if (raw.isEmpty) return ''; if (raw.startsWith('http://') || raw.startsWith('https://')) return raw; if (RegExp(r'^(products|collections|categories|banners|stores|receipts|avatars|support|misc)/').hasMatch(raw)) return '${ApiConfig.mediaBaseUrl}/$raw'; return raw.startsWith('/') ? '${ApiConfig.assetBaseUrl}$raw' : '${ApiConfig.assetBaseUrl}/$raw'; }
+String _imageUrl(Map<String, dynamic> json) => ApiConfig.resolveMedia('${json['image_url'] ?? json['image'] ?? json['mobile_image_url'] ?? json['desktop_image_url'] ?? ''}');

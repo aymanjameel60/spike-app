@@ -52,13 +52,15 @@ final appRouter = GoRouter(
         GoRoute(path: '/products', builder: (_, state) => ProductsScreen(categoryId: state.uri.queryParameters['category'], collectionId: state.uri.queryParameters['collection'], title: state.uri.queryParameters['title'] ?? 'المنتجات')),
         GoRoute(path: '/product/:id', builder: (_, state) => ProductDetailsScreen(id: state.pathParameters['id']!)),
         GoRoute(path: '/search', builder: (_, state) => SearchScreen(initialQuery: state.uri.queryParameters['q'] ?? '')),
-        GoRoute(path: '/login', builder: (_, state) => AuthScreen(mode: 'login', afterLoginRoute: state.uri.queryParameters['next'] == '/checkout' ? '/checkout' : '/profile')),
-        GoRoute(path: '/signup', builder: (_, state) => AuthScreen(mode: 'signup', afterLoginRoute: state.uri.queryParameters['next'] == '/checkout' ? '/checkout' : '/profile')),
       ],
     ),
     GoRoute(path: '/addresses', builder: (_, __) => const AddressesScreen()),
     GoRoute(path: '/address-form', builder: (_, state) => AddressFormScreen(address: state.extra is AddressModel ? state.extra as AddressModel : null)),
     GoRoute(path: '/password-reset', builder: (_, __) => const PasswordResetScreen()),
+    // Auth screens live outside the shell: no bottom bar on them, and pushing
+    // them over shell-external pages (e.g. /addresses) stays on one navigator.
+    GoRoute(path: '/login', builder: (_, state) => AuthScreen(mode: 'login', afterLoginRoute: (state.uri.queryParameters['next']?.isNotEmpty ?? false) ? state.uri.queryParameters['next']! : '/profile')),
+    GoRoute(path: '/signup', builder: (_, state) => AuthScreen(mode: 'signup', afterLoginRoute: (state.uri.queryParameters['next']?.isNotEmpty ?? false) ? state.uri.queryParameters['next']! : '/profile')),
   ],
   errorBuilder: (_, __) => const Directionality(textDirection: TextDirection.rtl, child: Center(child: Text('الصفحة غير موجودة'))),
 );

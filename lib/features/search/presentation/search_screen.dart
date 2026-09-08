@@ -138,7 +138,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     onChanged: (v) => setState(() => _query = v.trim()),
                     decoration: InputDecoration(
                       hintText: 'ابحث عن المنتجات ...',
-                      hintStyle: const TextStyle(fontSize: 12, color: Color(0xFFBDBDBD)),
+                      hintStyle: spikeTextStyle(fontSize: 12, color: const Color(0xFFBDBDBD)),
                       prefixIcon: const Icon(LucideIcons.search, size: 20),
                       suffixIcon: _query.isEmpty
                           ? null

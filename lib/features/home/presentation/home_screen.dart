@@ -578,7 +578,7 @@ class _CategoriesGrid extends StatelessWidget {
           crossAxisCount: 4,
           crossAxisSpacing: 11,
           mainAxisSpacing: 16,
-          childAspectRatio: .75,
+          mainAxisExtent: 120,
         ),
         itemBuilder: (context, i) {
           final c = categories[i];
@@ -596,7 +596,7 @@ class _CategoriesGrid extends StatelessWidget {
                     : CachedNetworkImage(imageUrl: c.imageUrl!, fit: BoxFit.cover, errorWidget: (_, __, ___) => Icon(LucideIcons.image, color: placeholderColor)),
               ),
               const SizedBox(height: 7),
-              Text(c.name, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, height: 1.2)),
+              Text(c.name, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 1.2)),
             ]),
           );
         },
@@ -667,7 +667,7 @@ class _StoresStrip extends StatelessWidget {
               width: 154,
               height: 69,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: dark ? spikeDarkPanel : spikePanel, borderRadius: BorderRadius.circular(22)),
+              decoration: BoxDecoration(color: dark ? spikeDarkPanel : const Color(0xFFE9E9E9), borderRadius: BorderRadius.circular(22)),
               child: store.logoUrl == null
                   ? Text(store.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))
                   : Padding(

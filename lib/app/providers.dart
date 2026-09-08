@@ -36,6 +36,7 @@ final announcementsProvider=FutureProvider.autoDispose<List<Map<String,dynamic>>
 final storeReviewsProvider=FutureProvider.autoDispose.family<Map<String,dynamic>,String>((ref,id)=>ref.watch(engagementRepositoryProvider).storeReviews(id));
 final favoritesProvider=FutureProvider.autoDispose<List<ProductModel>>((ref)async{final ids=await ref.watch(wishlistIdsProvider.future);final products=await ref.watch(allProductsProvider.future);return products.where((p)=>ids.contains(p.id)).toList();});
 final commerceRepositoryProvider=Provider<CommerceRepository>((ref)=>CommerceRepository(ref.watch(apiClientProvider)));
+final hasSessionProvider=FutureProvider<bool>((ref)async=>(await ref.watch(tokenStorageProvider).readToken())?.isNotEmpty==true);
 final citiesProvider=FutureProvider<List<CityModel>>((ref)=>ref.watch(commerceRepositoryProvider).cities());
 final addressesProvider=FutureProvider<List<AddressModel>>((ref)=>ref.watch(commerceRepositoryProvider).addresses());
 final activeAddressProvider=Provider<AsyncValue<AddressModel?>>((ref){

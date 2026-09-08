@@ -54,7 +54,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
       ref.invalidate(currentUserProvider);
       ref.invalidate(cartCountProvider);
-      if (mounted) context.go(widget.afterLoginRoute);
+      ref.invalidate(hasSessionProvider);
+      ref.invalidate(addressesProvider);
+      if (mounted) {
+        // Return to the page that requested login; go() would rebuild a page
+        // still in the stack and produce a duplicate page key assertion.
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(widget.afterLoginRoute);
+        }
+      }
     } catch (e) {
       if (mounted) showSpikeToast(context, e.toString());
     } finally {

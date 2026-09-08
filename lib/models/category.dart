@@ -9,12 +9,11 @@ class CategoryModel {
   final int sortOrder;
 
   factory CategoryModel.fromJson(Map<String, dynamic> j) {
-    final raw = '${j['image_url'] ?? ''}'.trim();
-    final image = raw.isEmpty ? null : (raw.startsWith('http') ? raw : raw.startsWith('/uploads/') ? '${ApiConfig.assetBaseUrl}$raw' : raw);
+    final resolved = ApiConfig.resolveMedia('${j['image_url'] ?? ''}');
     return CategoryModel(
       id: '${j['id'] ?? ''}',
       name: '${j['name'] ?? ''}',
-      imageUrl: image,
+      imageUrl: resolved.isEmpty ? null : resolved,
       enabled: j['enabled'] != false,
       sortOrder: int.tryParse('${j['sort_order'] ?? 0}') ?? 0,
     );
