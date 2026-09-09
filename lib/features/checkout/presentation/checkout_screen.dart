@@ -198,7 +198,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         InkWell(
                           onTap: () {
                             if (!hasAddress) {
-                              showSpikeToast(context, 'لاختيار طريقة الدفع، أضف أو اختر عنوان التوصيل أولاً');
+                              showSpikeToast(context, 'أضف أو اختر عنوان التوصيل');
                               return;
                             }
                             setState(() => payment = method);
@@ -229,7 +229,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       child: Text(
                         'أضف أو اختر عنوان التوصيل أولاً لتفعيل طرق الدفع',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: spikeRed, fontWeight: FontWeight.w800, height: 1.5),
+                        style: TextStyle(fontSize: 12, color: spikeRed, fontWeight: FontWeight.w500, height: 1.5),
                       ),
                     ),
                   ),
