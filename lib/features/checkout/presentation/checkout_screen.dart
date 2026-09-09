@@ -50,7 +50,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       methods = result[2] as List<PaymentMethodModel>;
       currencies = result[3] as List<CurrencyModel>;
       address = addresses.where((a) => a.isActive).cast<AddressModel?>().firstOrNull ?? (addresses.isNotEmpty ? addresses.first : null);
-      payment = methods.isNotEmpty ? methods.first : null;
+      payment = null;
       currency = currencies.where((c) => c.code == preferred).cast<CurrencyModel?>().firstOrNull ??
           currencies.where((c) => c.code == (cart?.currencyCode ?? 'USD')).cast<CurrencyModel?>().firstOrNull ??
           (currencies.isNotEmpty ? currencies.first : null);
@@ -71,8 +71,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     await context.push('/addresses');
     final list = await ref.read(commerceRepositoryProvider).addresses();
     final selected = list.where((a) => a.isActive).cast<AddressModel?>().firstOrNull;
-    if (selected == null) return;
-    setState(() => address = selected);
+    if (selected == null) {
+      if (mounted) setState(() {
+        addresses = list;
+        address = null;
+        payment = null;
+        quote = null;
+      });
+      return;
+    }
+    setState(() {
+      addresses = list;
+      address = selected;
+      payment = null;
+    });
     quote = await ref.read(commerceRepositoryProvider).quote(addressId: selected.id, variantIds: cart!.items.map((e) => e.variantId).toList());
     if (mounted) setState(() {});
   }
@@ -123,7 +135,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final panel = dark ? spikeDarkPanel : spikePanel;
     final card = dark ? const Color(0xFF1D1D1D) : Colors.white;
-    final ready = address != null && payment != null && currency != null && !busy;
+    final hasAddress = address != null;
+    final ready = hasAddress && payment != null && currency != null && !busy;
     final delivery = quote?.shippingYerOld ?? 0;
     final grand = cart!.subtotal + delivery;
 
@@ -175,31 +188,42 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   child: Text('طريقة الدفع', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
                 const SizedBox(height: 9),
-                Wrap(
-                  spacing: 9,
-                  runSpacing: 9,
-                  children: [
-                    for (final method in methods)
-                      InkWell(
-                        onTap: () => setState(() => payment = method),
-                        borderRadius: BorderRadius.circular(17),
-                        child: Container(
-                          constraints: const BoxConstraints(minHeight: 48),
-                          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: card,
+                Opacity(
+                  opacity: hasAddress ? 1 : .42,
+                  child: IgnorePointer(
+                    ignoring: !hasAddress,
+                    child: Wrap(
+                      spacing: 9,
+                      runSpacing: 9,
+                      children: [
+                        for (final method in methods)
+                          InkWell(
+                            onTap: hasAddress ? () => setState(() => payment = method) : null,
                             borderRadius: BorderRadius.circular(17),
-                            border: Border.all(color: payment?.method == method.method ? Theme.of(context).colorScheme.onSurface : Theme.of(context).dividerColor),
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 48),
+                              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: card,
+                                borderRadius: BorderRadius.circular(17),
+                                border: Border.all(color: payment?.method == method.method ? Theme.of(context).colorScheme.onSurface : Theme.of(context).dividerColor),
+                              ),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(payment?.method == method.method ? Icons.radio_button_checked : Icons.radio_button_off, size: 18),
+                                const SizedBox(width: 7),
+                                Text(method.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                              ]),
+                            ),
                           ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(payment?.method == method.method ? Icons.radio_button_checked : Icons.radio_button_off, size: 18),
-                            const SizedBox(width: 7),
-                            Text(method.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                          ]),
-                        ),
-                      ),
-                  ],
+                      ],
+                    ),
+                  ),
                 ),
+                if (!hasAddress)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(5, 8, 5, 0),
+                    child: Text('أضف أو اختر عنوان التوصيل أولاً لتفعيل طرق الدفع.', style: TextStyle(fontSize: 11, color: spikeMuted, fontWeight: FontWeight.w700)),
+                  ),
                 if (payment != null && payment!.instructions.trim().isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Container(
