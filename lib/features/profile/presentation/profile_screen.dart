@@ -42,13 +42,7 @@ class ProfileScreen extends ConsumerWidget {
                         child: ColoredBox(
                           color: spikeRed,
                           child: avatar.isEmpty
-                              ? const Center(
-                                  child: Icon(
-                                    LucideIcons.userRound,
-                                    size: 28,
-                                    color: Colors.white,
-                                  ),
-                                )
+                              ? const SizedBox.expand()
                               : CachedNetworkImage(
                                   imageUrl: avatar,
                                   fit: BoxFit.cover,
