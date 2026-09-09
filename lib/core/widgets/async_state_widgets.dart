@@ -36,5 +36,5 @@ void showSpikeToast(BuildContext context, String message) {
   final messenger = ScaffoldMessenger.of(context);
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message, textAlign: TextAlign.center), duration: const Duration(seconds: 2)));
+    ..showSnackBar(SnackBar(content: Text(message, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w400)), duration: const Duration(seconds: 2)));
 }
