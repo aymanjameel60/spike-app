@@ -35,11 +35,28 @@ class ProfileScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 35,
-                      backgroundColor: spikeRed,
-                      backgroundImage: avatar.isEmpty ? null : CachedNetworkImageProvider(avatar),
-                      child: avatar.isEmpty ? const Icon(LucideIcons.userRound, size: 28, color: Colors.white) : null,
+                    SizedBox(
+                      width: 70,
+                      height: 70,
+                      child: ClipOval(
+                        child: ColoredBox(
+                          color: spikeRed,
+                          child: avatar.isEmpty
+                              ? const Center(
+                                  child: Icon(
+                                    LucideIcons.userRound,
+                                    size: 28,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : CachedNetworkImage(
+                                  imageUrl: avatar,
+                                  fit: BoxFit.cover,
+                                  width: 70,
+                                  height: 70,
+                                ),
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
