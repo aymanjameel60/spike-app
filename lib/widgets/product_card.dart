@@ -65,12 +65,13 @@ class SpikeProductCard extends StatelessWidget {
                         : CachedNetworkImage(
                             imageUrl: product.imageUrl!,
                             fit: BoxFit.contain,
-                            placeholder: (_, __) => const Center(
-                              child: SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(strokeWidth: 1.8),
-                              ),
-                            ),
+                            memCacheWidth: 320,
+                            memCacheHeight: 280,
+                            maxWidthDiskCache: 640,
+                            maxHeightDiskCache: 560,
+                            fadeInDuration: Duration.zero,
+                            fadeOutDuration: Duration.zero,
+                            placeholder: (_, __) => Container(color: imageColor),
                             errorWidget: (_, __, ___) => Icon(LucideIcons.image, color: textColor.withValues(alpha:.18)),
                           ),
                   ),
