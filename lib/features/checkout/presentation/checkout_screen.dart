@@ -190,39 +190,48 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 9),
                 Opacity(
                   opacity: hasAddress ? 1 : .42,
-                  child: IgnorePointer(
-                    ignoring: !hasAddress,
-                    child: Wrap(
-                      spacing: 9,
-                      runSpacing: 9,
-                      children: [
-                        for (final method in methods)
-                          InkWell(
-                            onTap: hasAddress ? () => setState(() => payment = method) : null,
-                            borderRadius: BorderRadius.circular(17),
-                            child: Container(
-                              constraints: const BoxConstraints(minHeight: 48),
-                              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: card,
-                                borderRadius: BorderRadius.circular(17),
-                                border: Border.all(color: payment?.method == method.method ? Theme.of(context).colorScheme.onSurface : Theme.of(context).dividerColor),
-                              ),
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(payment?.method == method.method ? Icons.radio_button_checked : Icons.radio_button_off, size: 18),
-                                const SizedBox(width: 7),
-                                Text(method.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                              ]),
+                  child: Wrap(
+                    spacing: 9,
+                    runSpacing: 9,
+                    children: [
+                      for (final method in methods)
+                        InkWell(
+                          onTap: () {
+                            if (!hasAddress) {
+                              showSpikeToast(context, 'لاختيار طريقة الدفع، أضف أو اختر عنوان التوصيل أولاً');
+                              return;
+                            }
+                            setState(() => payment = method);
+                          },
+                          borderRadius: BorderRadius.circular(17),
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 48),
+                            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: card,
+                              borderRadius: BorderRadius.circular(17),
+                              border: Border.all(color: payment?.method == method.method ? Theme.of(context).colorScheme.onSurface : Theme.of(context).dividerColor),
                             ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(payment?.method == method.method ? Icons.radio_button_checked : Icons.radio_button_off, size: 18),
+                              const SizedBox(width: 7),
+                              Text(method.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                            ]),
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
                 ),
                 if (!hasAddress)
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(5, 8, 5, 0),
-                    child: Text('أضف أو اختر عنوان التوصيل أولاً لتفعيل طرق الدفع.', style: TextStyle(fontSize: 11, color: spikeMuted, fontWeight: FontWeight.w700)),
+                    padding: EdgeInsets.fromLTRB(5, 10, 5, 0),
+                    child: Center(
+                      child: Text(
+                        'أضف أو اختر عنوان التوصيل أولاً لتفعيل طرق الدفع',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: spikeRed, fontWeight: FontWeight.w800, height: 1.5),
+                      ),
+                    ),
                   ),
                 if (payment != null && payment!.instructions.trim().isNotEmpty) ...[
                   const SizedBox(height: 12),
