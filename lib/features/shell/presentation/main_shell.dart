@@ -4,26 +4,46 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../app/providers.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/async_state_widgets.dart';
+import '../../../core/widgets/spike_network_image.dart';
+import '../../../models/banner_item.dart';
 
-class MainShell extends ConsumerWidget {
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key, required this.child, required this.location});
   final Widget child;
   final String location;
 
+  @override
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> {
+  static bool _popupShownThisSession = false;
+  bool _popupScheduled = false;
+
   int get _index {
+    final location = widget.location;
     if (location.startsWith('/offers')) return 1;
     if (location.startsWith('/cart') || location.startsWith('/checkout')) return 3;
-    if (const ['/profile', '/personal-data', '/privacy', '/settings', '/favorites', '/orders', '/order/', '/returns-refunds', '/support', '/login', '/signup'].any(location.startsWith)) return 0;
+    if (const ['/profile', '/personal-data', '/privacy', '/settings', '/favorites', '/orders', '/order/', '/returns-refunds', '/support', '/share-win', '/wallet', '/vendor-registration'].any(location.startsWith)) return 0;
     return 2;
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final cartCount = ref.watch(cartCountProvider).valueOrNull ?? 0;
+    final popup = ref.watch(popupBannersProvider);
+    if (!_popupShownThisSession && !_popupScheduled && widget.location == '/') {
+      final items = popup.valueOrNull ?? const <BannerItem>[];
+      if (items.isNotEmpty) {
+        _popupScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) => _showPopup(items.first));
+      }
+    }
     return Scaffold(
       endDrawer: const _SpikeDrawer(),
-      body: child,
+      body: widget.child,
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
@@ -38,6 +58,67 @@ class MainShell extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _showPopup(BannerItem item) async {
+    if (!mounted || _popupShownThisSession) return;
+    _popupShownThisSession = true;
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            GestureDetector(
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                _openBanner(item);
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: AspectRatio(
+                  aspectRatio: .86,
+                  child: SpikeNetworkImage(url: item.imageUrl, fit: BoxFit.cover),
+                ),
+              ),
+            ),
+            Positioned(
+              top: -14,
+              left: -8,
+              child: Material(
+                color: Colors.white,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  icon: const Icon(LucideIcons.x, color: Colors.black, size: 22),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openBanner(BannerItem item) {
+    final t = item.actionType.toLowerCase();
+    if (t == 'product' && item.target.isNotEmpty) {
+      context.push('/product/${item.target}');
+    } else if (t == 'category' && item.target.isNotEmpty) {
+      context.push('/products?category=${Uri.encodeComponent(item.target)}');
+    } else if (t == 'collection' && item.target.isNotEmpty) {
+      context.push('/products?collection=${Uri.encodeComponent(item.target)}');
+    } else if (t == 'store' && item.target.isNotEmpty) {
+      context.push('/store/${item.target}');
+    } else if (t == 'internal' && item.targetUrl.startsWith('/')) {
+      context.push(item.targetUrl);
+    }
   }
 
   Widget _item(BuildContext context, int index, IconData icon, String route, {int badge = 0}) {
@@ -76,7 +157,6 @@ class MainShell extends ConsumerWidget {
   }
 }
 
-
 class _SpikeDrawer extends ConsumerWidget {
   const _SpikeDrawer();
   @override
@@ -92,19 +172,20 @@ class _SpikeDrawer extends ConsumerWidget {
       _DrawerItem(icon: LucideIcons.home, label: 'الرئيسية', onTap: () => _go(context, '/')),
       _DrawerItem(icon: LucideIcons.store, label: 'المتاجر', onTap: () => _go(context, '/stores')),
       _DrawerItem(icon: LucideIcons.badgePercent, label: 'العروض والخصومات', onTap: () => _go(context, '/offers')),
-      _DrawerItem(icon: LucideIcons.heart, label: 'المفضلة', onTap: () => _protectedGo(context, user, '/favorites')),
+      _DrawerItem(icon: LucideIcons.heart, label: 'المفضلة', onTap: () => _go(context, '/favorites')),
       _DrawerItem(icon: LucideIcons.mapPin, label: 'عناويني', onTap: () => _protectedGo(context, user, '/addresses')),
-      _DrawerItem(icon: LucideIcons.messageCircle, label: 'خدمة العملاء', onTap: () => _protectedGo(context, user, '/support')),
+      _DrawerItem(icon: LucideIcons.messageCircle, label: 'خدمة العملاء', onTap: () => _go(context, '/support')),
       const Spacer(),
-      _DrawerItem(icon: LucideIcons.settings2, label: 'الإعدادات', onTap: () => _protectedGo(context, user, '/settings')),
+      _DrawerItem(icon: LucideIcons.settings2, label: 'الإعدادات', onTap: () => _go(context, '/settings')),
       if (user != null) _DrawerItem(icon: LucideIcons.logOut, label: 'تسجيل الخروج', onTap: () => _logout(context, ref)),
       const SizedBox(height: 16),
     ])));
   }
-  Future<void> _logout(BuildContext context, WidgetRef ref) async { Navigator.pop(context); await ref.read(authRepositoryProvider).logout(); ref.invalidate(currentUserProvider); if (context.mounted) context.go('/'); }
+  Future<void> _logout(BuildContext context, WidgetRef ref) async { Navigator.pop(context); await ref.read(authRepositoryProvider).logout(); ref.invalidate(currentUserProvider); ref.invalidate(hasSessionProvider); ref.invalidate(shareWinPublicProvider); if (context.mounted) context.go('/'); }
   void _go(BuildContext context, String route) { Navigator.pop(context); context.go(route); }
-  void _protectedGo(BuildContext context, Map<String, dynamic>? user, String route) { Navigator.pop(context); if (user == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('سجّل الدخول أولاً للمتابعة'))); context.push('/login'); } else { context.go(route); } }
+  void _protectedGo(BuildContext context, Map<String, dynamic>? user, String route) { Navigator.pop(context); if (user == null) { showSpikeToast(context, 'سجّل الدخول أولاً للمتابعة'); context.push('/login?next=${Uri.encodeComponent(route)}'); } else { context.go(route); } }
 }
+
 class _DrawerItem extends StatelessWidget {
   const _DrawerItem({required this.icon, required this.label, required this.onTap});
   final IconData icon; final String label; final VoidCallback onTap;
