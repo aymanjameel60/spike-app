@@ -55,6 +55,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     itemBuilder: (context, i) {
                       final o = list[i];
                       final statusColor = _statusColor(o.status);
+                      final split = o.spikeWalletAmount > 0 && o.remainingAmount > 0;
                       return InkWell(
                         onTap: () => context.push('/order/${o.id}'),
                         borderRadius: BorderRadius.circular(24),
@@ -77,11 +78,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             ]),
                             const Padding(padding: EdgeInsets.symmetric(vertical: 11), child: Divider(height: 1)),
                             Row(children: [
-                              Expanded(child: Text(o.paymentMethod == 'cod' ? 'الدفع عند الاستلام' : 'حوالة مالية', style: const TextStyle(fontSize: 10, color: spikeMuted))),
+                              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(split ? 'محفظة سبايك + ${_paymentMethod(o.paymentMethod)}' : _paymentMethod(o.paymentMethod), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                                Text(_payment(o.paymentStatus), style: const TextStyle(fontSize: 9, color: spikeMuted)),
+                              ])),
                               Text('${o.total.toStringAsFixed(2)} ${o.currencyCode}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
                               const SizedBox(width: 8),
                               const Icon(LucideIcons.chevronLeft, size: 18, color: spikeMuted),
                             ]),
+                            if (split) Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text('من سبايك ${o.spikeWalletAmount.toStringAsFixed(2)} • المتبقي ${o.remainingAmount.toStringAsFixed(2)} ${o.currencyCode}', style: const TextStyle(fontSize: 9, color: spikeMuted)),
+                            ),
                           ]),
                         ),
                       );
@@ -135,7 +143,8 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
     try {
       await ref.read(commerceRepositoryProvider).uploadReceipt(widget.id, x.path);
       ref.invalidate(orderDetailsProvider(widget.id));
-      if (mounted) showSpikeToast(context, 'تم رفع سند الحوالة وإرساله للمراجعة');
+      ref.invalidate(ordersProvider);
+      if (mounted) showSpikeToast(context, 'تم رفع سند الدفع وإرساله للمراجعة');
     } catch (e) {
       if (mounted) showSpikeToast(context, e.toString());
     } finally {
@@ -282,8 +291,14 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
           final order = Map<String, dynamic>.from(d['order'] as Map? ?? const {});
           final subs = (d['suborders'] as List? ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
           final items = (d['items'] as List? ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
-          final transfer = order['payment_method'] == 'transfer';
-          final needsReceipt = transfer && order['status'] == 'pending_admin_review' && (order['receipt_url'] == null || '${order['receipt_url']}'.isEmpty);
+          final payments = (d['payments'] as List? ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+          final method = '${order['payment_method'] ?? ''}';
+          final paymentStatus = '${order['payment_status'] ?? ''}';
+          final manualPayment = method == 'transfer' || (method == 'wallet' && order['wallet_execution_mode'] == 'manual');
+          final canUploadReceipt = manualPayment && order['status'] == 'pending_admin_review' && const {'awaiting_receipt', 'receipt_rejected'}.contains(paymentStatus);
+          final receiptUnderReview = manualPayment && paymentStatus == 'pending_review';
+          final spikeAmount = double.tryParse('${order['spike_wallet_amount'] ?? 0}') ?? 0;
+          final remainingAmount = double.tryParse('${order['remaining_amount'] ?? 0}') ?? 0;
           final orderDate = _dateTime(order['created_at']);
           return RefreshIndicator(
             onRefresh: () async {
@@ -305,19 +320,55 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
                 const Divider(),
                 const SizedBox(height: SpikeSpacing.sm),
                 if (orderDate.isNotEmpty) _info(LucideIcons.calendarDays, 'تاريخ الطلب', orderDate),
-                _info(LucideIcons.walletCards, 'الدفع', '${transfer ? 'حوالة مالية' : 'عند الاستلام'} • ${_payment('${order['payment_status'] ?? ''}')}'),
+                _info(LucideIcons.walletCards, 'الدفع', '${spikeAmount > 0 && remainingAmount > 0 ? 'محفظة سبايك + ' : ''}${_paymentMethod(method)} • ${_payment(paymentStatus)}'),
+                if ('${order['electronic_wallet_name'] ?? ''}'.isNotEmpty) _info(LucideIcons.smartphone, 'المحفظة', '${order['electronic_wallet_name']}'),
+                if (spikeAmount > 0) _info(LucideIcons.wallet, 'من محفظة سبايك', '$spikeAmount ${order['currency_code'] ?? ''}'),
+                if (spikeAmount > 0 && remainingAmount > 0) _info(LucideIcons.banknote, 'المبلغ المتبقي', '$remainingAmount ${order['currency_code'] ?? ''}'),
                 if (order['address_line'] != null) _info(LucideIcons.mapPin, 'التوصيل', '${order['address_line']}'),
               ])),
-              if (transfer)
+              if (manualPayment)
                 _box(context, Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  const Row(children: [Icon(LucideIcons.receipt, size: 18), SizedBox(width: SpikeSpacing.sm), Text('سند الحوالة', style: TextStyle(fontWeight: FontWeight.w900))]),
+                  Row(children: [const Icon(LucideIcons.receipt, size: 18), const SizedBox(width: SpikeSpacing.sm), Expanded(child: Text(method == 'wallet' ? 'سند دفع المحفظة' : 'سند الحوالة', style: const TextStyle(fontWeight: FontWeight.w900)))]),
                   const SizedBox(height: SpikeSpacing.sm),
-                  Text(needsReceipt ? 'ارفع صورة سند الحوالة ليتمكن الأدمن من مراجعة الطلب.' : 'حالة السند: ${_payment('${order['payment_status'] ?? ''}')}', style: const TextStyle(fontSize: 11, height: 1.5)),
-                  if (needsReceipt) ...[
+                  if (method == 'wallet' && '${order['electronic_wallet_account_name'] ?? ''}'.isNotEmpty) ...[
+                    _info(LucideIcons.user, 'اسم الحساب', '${order['electronic_wallet_account_name']}'),
+                    _info(LucideIcons.hash, 'رقم المحفظة', '${order['electronic_wallet_account_number'] ?? ''}'),
+                    if ('${order['electronic_wallet_instructions'] ?? ''}'.isNotEmpty) Text('${order['electronic_wallet_instructions']}', style: const TextStyle(fontSize: 10, color: spikeMuted, height: 1.45)),
+                    const SizedBox(height: SpikeSpacing.sm),
+                  ],
+                  Text(
+                    paymentStatus == 'receipt_rejected'
+                        ? '${order['payment_note'] ?? 'السند غير مقبول. ارفع سندًا جديدًا وواضحًا.'}'
+                        : receiptUnderReview
+                            ? 'تم استلام السند وهو الآن قيد مراجعة الإدارة.'
+                            : canUploadReceipt
+                                ? 'حوّل المبلغ المطلوب ثم ارفع صورة السند ليتم مراجعة الدفع.'
+                                : 'حالة الدفع: ${_payment(paymentStatus)}',
+                    style: TextStyle(fontSize: 11, height: 1.5, color: paymentStatus == 'receipt_rejected' ? spikeRed : null),
+                  ),
+                  if (canUploadReceipt) ...[
                     const SizedBox(height: SpikeSpacing.md),
-                    FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: spikeRed), onPressed: receiptBusy ? null : _receipt, icon: const Icon(LucideIcons.upload, size: 17), label: Text(receiptBusy ? 'جاري الرفع...' : 'رفع سند الحوالة')),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(backgroundColor: spikeRed),
+                      onPressed: receiptBusy ? null : _receipt,
+                      icon: const Icon(LucideIcons.upload, size: 17),
+                      label: Text(receiptBusy ? 'جاري الرفع...' : paymentStatus == 'receipt_rejected' ? 'رفع سند جديد' : 'رفع سند الدفع'),
+                    ),
                   ],
                 ])),
+              if (payments.isNotEmpty) _box(context, Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const Text('تفاصيل الدفع', style: TextStyle(fontWeight: FontWeight.w900)),
+                const SizedBox(height: SpikeSpacing.sm),
+                for (final p in payments) Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(children: [
+                    Expanded(child: Text('${_paymentMethod('${p['method'] ?? ''}')}${'${p['provider_name'] ?? ''}'.isEmpty ? '' : ' • ${p['provider_name']}'}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))),
+                    Text('${p['amount'] ?? 0} ${p['currency_code'] ?? ''}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
+                    const SizedBox(width: 8),
+                    Text(_payment('${p['status'] ?? ''}'), style: const TextStyle(fontSize: 9, color: spikeMuted)),
+                  ]),
+                ),
+              ])),
               const SizedBox(height: SpikeSpacing.sm),
               _sectionTitle(LucideIcons.route, 'تتبع الطلب'),
               timeline.when(
@@ -429,12 +480,21 @@ String _status(String s) => const {
       'rejected': 'مرفوض',
       'returned': 'مرتجع',
     }[s] ?? s;
+String _paymentMethod(String s) => const {
+      'transfer': 'حوالة مالية',
+      'wallet': 'محفظة إلكترونية',
+      'spike_wallet': 'محفظة سبايك',
+      'cod': 'الدفع عند الاستلام',
+    }[s] ?? s;
 String _payment(String s) => const {
+      'awaiting_receipt': 'بانتظار رفع السند',
       'pending_review': 'قيد مراجعة السند',
+      'receipt_rejected': 'السند مرفوض - أعد الرفع',
       'approved': 'تم اعتماد الدفع',
       'pending_collection': 'يُحصّل عند الاستلام',
       'paid': 'مدفوع',
       'rejected': 'مرفوض',
+      'cancelled': 'ملغي',
     }[s] ?? s;
 
 class _MiniEmpty extends StatelessWidget {
