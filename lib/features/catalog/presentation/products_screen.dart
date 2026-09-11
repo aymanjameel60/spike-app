@@ -103,14 +103,22 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 child: FilledButton(
                   style: FilledButton.styleFrom(backgroundColor: spikeRed, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
                   onPressed: () {
-                    final selectedCategory = categories.where((c) => c.id == localCategoryId).firstOrNull;
+                    String? selectedTitle;
+                    if (localCategoryId != null) {
+                      for (final category in categories) {
+                        if (category.id == localCategoryId) {
+                          selectedTitle = category.name;
+                          break;
+                        }
+                      }
+                    }
                     setState(() {
                       _sort = localSort;
                       _specialFilter = localSpecial;
                     });
                     Navigator.pop(sheetContext);
                     if (localCategoryId != widget.categoryId) {
-                      final title = selectedCategory?.name ?? (widget.collectionId == null ? 'المنتجات' : widget.title);
+                      final title = selectedTitle ?? (widget.collectionId == null ? 'المنتجات' : widget.title);
                       context.go(_productsLocation(categoryId: localCategoryId, title: title));
                     }
                   },
