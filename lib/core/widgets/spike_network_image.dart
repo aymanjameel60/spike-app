@@ -42,8 +42,8 @@ class SpikeNetworkImage extends StatelessWidget {
         height: height,
         memCacheWidth: memCacheWidth,
         memCacheHeight: memCacheHeight,
-        fadeInDuration: const Duration(milliseconds: 180),
-        fadeOutDuration: const Duration(milliseconds: 120),
+        fadeInDuration: const Duration(milliseconds: 120),
+        fadeOutDuration: const Duration(milliseconds: 80),
         placeholder: (_, __) => SpikeImageShimmer(dark: dark),
         errorWidget: (_, __, ___) => Center(child: fallback),
       );
@@ -56,55 +56,27 @@ class SpikeNetworkImage extends StatelessWidget {
   }
 }
 
-class SpikeImageShimmer extends StatefulWidget {
+class SpikeImageShimmer extends StatelessWidget {
   const SpikeImageShimmer({super.key, this.dark = false, this.borderRadius});
 
   final bool dark;
   final BorderRadius? borderRadius;
 
   @override
-  State<SpikeImageShimmer> createState() => _SpikeImageShimmerState();
-}
-
-class _SpikeImageShimmerState extends State<SpikeImageShimmer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1250),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final base = widget.dark ? const Color(0xFF242428) : const Color(0xFFECECEC);
-    final highlight = widget.dark ? const Color(0xFF34343A) : const Color(0xFFF8F8F8);
+    final base = dark ? const Color(0xFF242428) : const Color(0xFFECECEC);
+    final highlight = dark ? const Color(0xFF303036) : const Color(0xFFF6F6F6);
     return ClipRRect(
-      borderRadius: widget.borderRadius ?? BorderRadius.zero,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment(-1.6 + (_controller.value * 3.2), 0),
-                end: Alignment(-.6 + (_controller.value * 3.2), 0),
-                colors: [base, highlight, base],
-                stops: const [0.25, 0.5, 0.75],
-              ),
-            ),
-          );
-        },
+      borderRadius: borderRadius ?? BorderRadius.zero,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerRight,
+            end: Alignment.centerLeft,
+            colors: [base, highlight, base],
+            stops: const [0, .5, 1],
+          ),
+        ),
       ),
     );
   }
