@@ -6,9 +6,43 @@ import '../../../app/providers.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
 import '../../../core/widgets/spike_network_image.dart';
+import '../../../models/category.dart';
 
 class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
+
+  void _openCategory(BuildContext context, CategoryModel category) {
+    final categoryId = category.effectiveCategoryId;
+    if (categoryId != null) {
+      context.push(
+        Uri(
+          path: '/products',
+          queryParameters: {'category': categoryId, 'title': category.name},
+        ).toString(),
+      );
+      return;
+    }
+
+    final collectionId = category.effectiveCollectionId;
+    if (collectionId != null) {
+      context.push(
+        Uri(
+          path: '/products',
+          queryParameters: {'collection': collectionId, 'title': category.name},
+        ).toString(),
+      );
+      return;
+    }
+
+    if (category.actionType == 'all_categories' || category.showAsMore) {
+      context.go('/categories');
+      return;
+    }
+
+    if (category.actionType == 'section') {
+      context.go('/');
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,7 +57,10 @@ class CategoriesScreen extends ConsumerWidget {
             child: SizedBox(
               height: 60,
               child: Row(children: [
-                IconButton(onPressed: () => context.canPop() ? context.pop() : context.go('/'), icon: const Icon(LucideIcons.arrowRight, size: 22)),
+                IconButton(
+                  onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+                  icon: const Icon(LucideIcons.arrowRight, size: 22),
+                ),
                 const Spacer(),
                 const Text('تسوق حسب الفئة', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
                 const Spacer(),
@@ -34,7 +71,10 @@ class CategoriesScreen extends ConsumerWidget {
           Expanded(
             child: state.when(
               loading: () => const SpikeLoading(),
-              error: (e, _) => SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(homeDataProvider)),
+              error: (e, _) => SpikeErrorState(
+                message: e.toString(),
+                onRetry: () => ref.invalidate(homeDataProvider),
+              ),
               data: (data) => data.categories.isEmpty
                   ? const SpikeEmptyState(message: 'لا توجد أقسام منشورة بعد')
                   : RefreshIndicator(
@@ -54,17 +94,25 @@ class CategoriesScreen extends ConsumerWidget {
                         itemBuilder: (context, i) {
                           final c = data.categories[i];
                           return InkWell(
-                            onTap: () => context.push('/products?category=${Uri.encodeComponent(c.id)}&title=${Uri.encodeComponent(c.name)}'),
+                            onTap: () => _openCategory(context, c),
                             borderRadius: BorderRadius.circular(21),
                             child: Column(children: [
                               Container(
                                 width: 81,
                                 height: 81,
                                 clipBehavior: Clip.antiAlias,
-                                decoration: BoxDecoration(color: dark ? spikeDarkPanel : spikePanel, borderRadius: BorderRadius.circular(21)),
+                                decoration: BoxDecoration(
+                                  color: dark ? spikeDarkPanel : spikePanel,
+                                  borderRadius: BorderRadius.circular(21),
+                                ),
                                 child: c.imageUrl == null
                                     ? Icon(LucideIcons.image, color: mutedIcon)
-                                    : SpikeNetworkImage(url: c.imageUrl, fit: BoxFit.cover, width: 81, height: 81),
+                                    : SpikeNetworkImage(
+                                        url: c.imageUrl,
+                                        fit: BoxFit.cover,
+                                        width: 81,
+                                        height: 81,
+                                      ),
                               ),
                               const SizedBox(height: 9),
                               Text(
