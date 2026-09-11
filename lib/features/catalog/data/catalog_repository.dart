@@ -101,7 +101,7 @@ class CatalogRepository {
     String? search,
   }) async {
     final safePage = page < 1 ? 1 : page;
-    final safeSize = pageSize.clamp(10, 100);
+    final safeSize = pageSize.clamp(10, 100).toInt();
     final idList = ids
             ?.map((e) => e.trim())
             .where((e) => e.isNotEmpty)
@@ -169,7 +169,7 @@ class CatalogRepository {
           hasNext: false,
         );
       }
-      final end = (start + safeSize).clamp(0, filtered.length);
+      final end = (start + safeSize).clamp(0, filtered.length).toInt();
       return ProductPage(
         items: filtered.sublist(start, end),
         page: safePage,
