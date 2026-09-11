@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
 import '../../../app/providers.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
@@ -25,9 +26,11 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
   String _specialFilter = 'all';
   final Set<String> _favoriteBusy = {};
 
-  double _discount(ProductModel p) {
-    final original = p.originalPrice ?? 0;
-    return original > p.price && original > 0 ? (original - p.price) / original : 0;
+  double _discount(ProductModel product) {
+    final original = product.originalPrice ?? 0;
+    return original > product.price && original > 0
+        ? (original - product.price) / original
+        : 0;
   }
 
   void _showFilters(List<String> categories) {
@@ -103,7 +106,11 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                     children: [
                       _Chip('الكل', localCategory == 'الكل', () => setLocal(() => localCategory = 'الكل')),
                       for (final category in categories)
-                        _Chip(category, localCategory == category, () => setLocal(() => localCategory = category)),
+                        _Chip(
+                          category,
+                          localCategory == category,
+                          () => setLocal(() => localCategory = category),
+                        ),
                     ],
                   ),
                 _FilterGroup(
@@ -119,7 +126,9 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                   child: FilledButton(
                     style: FilledButton.styleFrom(
                       backgroundColor: spikeRed,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
                     ),
                     onPressed: () {
                       setState(() {
@@ -143,16 +152,16 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
     );
   }
 
-  Future<void> _toggleFavorite(ProductModel p) async {
-    if (_favoriteBusy.contains(p.id)) return;
-    setState(() => _favoriteBusy.add(p.id));
+  Future<void> _toggleFavorite(ProductModel product) async {
+    if (_favoriteBusy.contains(product.id)) return;
+    setState(() => _favoriteBusy.add(product.id));
     final ids = ref.read(wishlistIdsProvider).valueOrNull ?? <String>{};
-    final active = ids.contains(p.id);
+    final active = ids.contains(product.id);
     try {
       if (active) {
-        await ref.read(engagementRepositoryProvider).removeWishlist(p.id);
+        await ref.read(engagementRepositoryProvider).removeWishlist(product.id);
       } else {
-        await ref.read(engagementRepositoryProvider).addWishlist(p.id);
+        await ref.read(engagementRepositoryProvider).addWishlist(product.id);
       }
       ref.invalidate(wishlistIdsProvider);
       ref.invalidate(favoritesProvider);
@@ -162,29 +171,32 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
           active ? 'تمت إزالة المنتج من المفضلة' : 'تمت إضافة المنتج إلى المفضلة',
         );
       }
-    } catch (e) {
-      if (mounted) showSpikeToast(context, e.toString());
+    } catch (error) {
+      if (mounted) showSpikeToast(context, error.toString());
     } finally {
-      if (mounted) setState(() => _favoriteBusy.remove(p.id));
+      if (mounted) setState(() => _favoriteBusy.remove(product.id));
     }
   }
 
-  Future<void> _add(ProductModel p) async {
-    final v = p.cheapestVariant;
-    if (v == null || !p.purchasable) return;
+  Future<void> _add(ProductModel product) async {
+    final variant = product.cheapestVariant;
+    if (variant == null || !product.purchasable) return;
     try {
-      await ref.read(cartRepositoryProvider).add(variantId: v.id, product: p);
+      await ref.read(cartRepositoryProvider).add(
+            variantId: variant.id,
+            product: product,
+          );
       ref.invalidate(cartCountProvider);
       if (mounted) showSpikeToast(context, 'تمت إضافة المنتج إلى السلة');
-    } catch (e) {
-      if (mounted) showSpikeToast(context, e.toString());
+    } catch (error) {
+      if (mounted) showSpikeToast(context, error.toString());
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final stores = ref.watch(storesProvider);
-    final products = ref.watch(allProductsProvider);
+    final products = ref.watch(storeProductsProvider(widget.id));
     final reviewsState = ref.watch(storeReviewsProvider(widget.id));
     final favorites = ref.watch(wishlistIdsProvider).valueOrNull ?? <String>{};
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -193,12 +205,12 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
       body: SafeArea(
         child: stores.when(
           loading: () => const SpikeLoading(),
-          error: (e, _) => SpikeErrorState(
-            message: e.toString(),
+          error: (error, _) => SpikeErrorState(
+            message: error.toString(),
             onRetry: () => ref.invalidate(storesProvider),
           ),
           data: (storeList) {
-            final matching = storeList.where((s) => s.id == widget.id);
+            final matching = storeList.where((store) => store.id == widget.id);
             if (matching.isEmpty) {
               return const SpikeEmptyState(message: 'المتجر غير متاح حالياً');
             }
@@ -206,49 +218,62 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
 
             return products.when(
               loading: () => const SpikeLoading(),
-              error: (e, _) => SpikeErrorState(
-                message: e.toString(),
-                onRetry: () => ref.invalidate(allProductsProvider),
+              error: (error, _) => SpikeErrorState(
+                message: error.toString(),
+                onRetry: () => ref.invalidate(storeProductsProvider(widget.id)),
               ),
-              data: (all) {
-                final storeProducts = all.where((p) => p.storeId == store.id).toList();
+              data: (storeProducts) {
                 final categories = <String>{
-                  for (final p in storeProducts)
-                    if ((p.categoryName ?? '').trim().isNotEmpty) p.categoryName!.trim(),
+                  for (final product in storeProducts)
+                    if ((product.categoryName ?? '').trim().isNotEmpty)
+                      product.categoryName!.trim(),
                 }.toList()
                   ..sort();
 
-                final q = _query.toLowerCase();
-                final list = storeProducts.where((p) {
-                  final matchesQuery = q.isEmpty ||
-                      p.name.toLowerCase().contains(q) ||
-                      (p.categoryName ?? '').toLowerCase().contains(q);
-                  final matchesCategory = _category == 'الكل' || p.categoryName == _category;
-                  final matchesSpecial = _specialFilter != 'offers' || _discount(p) > 0;
+                final query = _query.toLowerCase();
+                final list = storeProducts.where((product) {
+                  final matchesQuery = query.isEmpty ||
+                      product.name.toLowerCase().contains(query) ||
+                      (product.categoryName ?? '').toLowerCase().contains(query);
+                  final matchesCategory =
+                      _category == 'الكل' || product.categoryName == _category;
+                  final matchesSpecial =
+                      _specialFilter != 'offers' || _discount(product) > 0;
                   return matchesQuery && matchesCategory && matchesSpecial;
                 }).toList();
 
-                if (_sort == 'price-low') list.sort((a, b) => a.price.compareTo(b.price));
-                if (_sort == 'price-high') list.sort((a, b) => b.price.compareTo(a.price));
-                if (_sort == 'rating') list.sort((a, b) => b.rating.compareTo(a.rating));
-                if (_sort == 'discount') list.sort((a, b) => _discount(b).compareTo(_discount(a)));
+                if (_sort == 'price-low') {
+                  list.sort((a, b) => a.price.compareTo(b.price));
+                } else if (_sort == 'price-high') {
+                  list.sort((a, b) => b.price.compareTo(a.price));
+                } else if (_sort == 'rating') {
+                  list.sort((a, b) => b.rating.compareTo(a.rating));
+                } else if (_sort == 'discount') {
+                  list.sort((a, b) => _discount(b).compareTo(_discount(a)));
+                }
 
                 final storeRating = reviewsState.valueOrNull;
-                final rating = double.tryParse('${storeRating?['average'] ?? store.rating}') ?? store.rating;
-                final reviewsCount = int.tryParse('${storeRating?['count'] ?? store.reviewCount}') ?? store.reviewCount;
+                final rating = double.tryParse(
+                      '${storeRating?['average'] ?? store.rating}',
+                    ) ??
+                    store.rating;
+                final reviewsCount = int.tryParse(
+                      '${storeRating?['count'] ?? store.reviewCount}',
+                    ) ??
+                    store.reviewCount;
                 final reviews = (storeRating?['reviews'] as List? ?? const [])
                     .whereType<Map>()
-                    .map((e) => Map<String, dynamic>.from(e))
+                    .map((review) => Map<String, dynamic>.from(review))
                     .toList();
 
                 return RefreshIndicator(
                   onRefresh: () async {
                     ref.invalidate(storesProvider);
-                    ref.invalidate(allProductsProvider);
+                    ref.invalidate(storeProductsProvider(widget.id));
                     ref.invalidate(storeReviewsProvider(widget.id));
                     ref.invalidate(wishlistIdsProvider);
                     ref.invalidate(cartCountProvider);
-                    await ref.read(allProductsProvider.future);
+                    await ref.read(storeProductsProvider(widget.id).future);
                   },
                   child: CustomScrollView(
                     slivers: [
@@ -263,7 +288,9 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                     width: 50,
                                     height: 42,
                                     child: IconButton.filledTonal(
-                                      onPressed: () => context.canPop() ? context.pop() : context.go('/stores'),
+                                      onPressed: () => context.canPop()
+                                          ? context.pop()
+                                          : context.go('/stores'),
                                       icon: const Icon(Icons.arrow_forward, size: 23),
                                     ),
                                   ),
@@ -276,7 +303,8 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                         borderRadius: BorderRadius.circular(22),
                                       ),
                                       child: TextField(
-                                        onChanged: (v) => setState(() => _query = v.trim()),
+                                        onChanged: (value) =>
+                                            setState(() => _query = value.trim()),
                                         decoration: InputDecoration(
                                           hintText: 'ابحث داخل ${store.name}',
                                           prefixIcon: const Icon(Icons.search, size: 20),
@@ -297,7 +325,9 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                     height: 185,
                                     width: double.infinity,
                                     child: store.bannerUrl == null
-                                        ? Container(color: dark ? Colors.white10 : Colors.black12)
+                                        ? Container(
+                                            color: dark ? Colors.white10 : Colors.black12,
+                                          )
                                         : CachedNetworkImage(
                                             imageUrl: store.bannerUrl!,
                                             fit: BoxFit.cover,
@@ -320,14 +350,20 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                             decoration: BoxDecoration(
                                               color: Colors.white,
                                               shape: BoxShape.circle,
-                                              border: Border.all(color: const Color(0xFFEEEEEE)),
+                                              border: Border.all(
+                                                color: const Color(0xFFEEEEEE),
+                                              ),
                                             ),
                                             child: store.logoUrl == null
-                                                ? const Icon(Icons.storefront_outlined, color: Colors.black)
+                                                ? const Icon(
+                                                    Icons.storefront_outlined,
+                                                    color: Colors.black,
+                                                  )
                                                 : CachedNetworkImage(
                                                     imageUrl: store.logoUrl!,
                                                     fit: BoxFit.contain,
-                                                    errorWidget: (_, __, ___) => const Icon(
+                                                    errorWidget: (_, __, ___) =>
+                                                        const Icon(
                                                       Icons.storefront_outlined,
                                                       color: Colors.black,
                                                     ),
@@ -342,17 +378,26 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                                 children: [
                                                   Text(
                                                     store.name,
-                                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                                                    style: const TextStyle(
+                                                      fontSize: 18,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
                                                   ),
                                                   const SizedBox(height: 3),
                                                   if ((store.categoryName ?? '').isNotEmpty)
                                                     Text(
                                                       store.categoryName!,
-                                                      style: const TextStyle(fontSize: 9, color: spikeMuted),
+                                                      style: const TextStyle(
+                                                        fontSize: 9,
+                                                        color: spikeMuted,
+                                                      ),
                                                     ),
                                                   const Text(
                                                     'متجر موثوق على Spike',
-                                                    style: TextStyle(fontSize: 9, color: spikeMuted),
+                                                    style: TextStyle(
+                                                      fontSize: 9,
+                                                      color: spikeMuted,
+                                                    ),
                                                   ),
                                                 ],
                                               ),
@@ -360,23 +405,40 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                           ),
                                           Container(
                                             margin: const EdgeInsets.only(bottom: 4),
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 7,
+                                            ),
                                             decoration: BoxDecoration(
-                                              color: dark ? Colors.white10 : const Color(0xFFF1F1F1),
+                                              color: dark
+                                                  ? Colors.white10
+                                                  : const Color(0xFFF1F1F1),
                                               borderRadius: BorderRadius.circular(18),
                                             ),
                                             child: Row(
                                               children: [
-                                                const Icon(Icons.star_rounded, size: 14, color: Color(0xFFF5B400)),
+                                                const Icon(
+                                                  Icons.star_rounded,
+                                                  size: 14,
+                                                  color: Color(0xFFF5B400),
+                                                ),
                                                 const SizedBox(width: 2),
                                                 Text(
-                                                  reviewsCount > 0 ? rating.toStringAsFixed(1) : '—',
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                                  reviewsCount > 0
+                                                      ? rating.toStringAsFixed(1)
+                                                      : '—',
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
                                                 if (reviewsCount > 0)
                                                   Text(
                                                     ' ($reviewsCount)',
-                                                    style: const TextStyle(fontSize: 9, color: spikeMuted),
+                                                    style: const TextStyle(
+                                                      fontSize: 9,
+                                                      color: spikeMuted,
+                                                    ),
                                                   ),
                                               ],
                                             ),
@@ -394,7 +456,12 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                         children: [
                                           _stat('${storeProducts.length}', 'منتجات'),
                                           _stat('$reviewsCount', 'مراجعات'),
-                                          _stat(reviewsCount > 0 ? rating.toStringAsFixed(1) : '—', 'التقييم'),
+                                          _stat(
+                                            reviewsCount > 0
+                                                ? rating.toStringAsFixed(1)
+                                                : '—',
+                                            'التقييم',
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -407,13 +474,18 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                               child: Align(
                                 alignment: Alignment.centerLeft,
                                 child: Material(
-                                  color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
+                                  color: dark
+                                      ? spikeDarkPanel
+                                      : const Color(0xFFE8E8E8),
                                   borderRadius: BorderRadius.circular(20),
                                   child: InkWell(
                                     onTap: () => _showFilters(categories),
                                     borderRadius: BorderRadius.circular(20),
                                     child: const Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 9,
+                                      ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -421,7 +493,10 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                           SizedBox(width: 6),
                                           Text(
                                             'ترتيب حسب',
-                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -441,18 +516,28 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                       children: [
                                         const Text(
                                           'تقييمات العملاء',
-                                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                         Text(
                                           '${reviews.length} تعليق',
-                                          style: const TextStyle(fontSize: 10, color: spikeMuted),
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: spikeMuted,
+                                          ),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 8),
-                                    ...reviews.take(3).map((r) {
-                                      final stars = int.tryParse('${r['rating'] ?? 0}') ?? 0;
-                                      final comment = '${r['comment'] ?? ''}'.trim();
+                                    ...reviews.take(3).map((review) {
+                                      final stars = int.tryParse(
+                                            '${review['rating'] ?? 0}',
+                                          ) ??
+                                          0;
+                                      final comment =
+                                          '${review['comment'] ?? ''}'.trim();
                                       return Container(
                                         margin: const EdgeInsets.only(bottom: 8),
                                         padding: const EdgeInsets.all(12),
@@ -467,19 +552,25 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                               children: [
                                                 Expanded(
                                                   child: Text(
-                                                    '${r['name'] ?? 'عميل'}',
-                                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                                    '${review['name'] ?? 'عميل'}',
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
                                                   ),
                                                 ),
                                                 Row(
                                                   children: List.generate(
                                                     5,
-                                                    (i) => Icon(
+                                                    (index) => Icon(
                                                       Icons.star_rounded,
                                                       size: 14,
-                                                      color: i < stars
+                                                      color: index < stars
                                                           ? const Color(0xFFF5B400)
-                                                          : Theme.of(context).colorScheme.onSurface.withValues(alpha: .15),
+                                                          : Theme.of(context)
+                                                              .colorScheme
+                                                              .onSurface
+                                                              .withValues(alpha: .15),
                                                     ),
                                                   ),
                                                 ),
@@ -490,7 +581,10 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                                 padding: const EdgeInsets.only(top: 8),
                                                 child: Text(
                                                   comment,
-                                                  style: const TextStyle(fontSize: 11, height: 1.45),
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    height: 1.45,
+                                                  ),
                                                 ),
                                               ),
                                           ],
@@ -507,11 +601,17 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                 children: [
                                   const Text(
                                     'منتجات المتجر',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                   Text(
                                     '${list.length} منتج',
-                                    style: const TextStyle(fontSize: 10, color: spikeMuted),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: spikeMuted,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -528,20 +628,26 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                           padding: const EdgeInsets.fromLTRB(17, 0, 17, 24),
                           sliver: SliverGrid.builder(
                             itemCount: list.length,
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
                               crossAxisSpacing: 11,
                               mainAxisSpacing: 11,
                               mainAxisExtent: 246,
                             ),
-                            itemBuilder: (context, i) {
-                              final p = list[i];
+                            itemBuilder: (context, index) {
+                              final product = list[index];
                               return SpikeProductCard(
-                                product: p,
-                                isFavorite: favorites.contains(p.id),
-                                onTap: () => context.push('/product/${p.id}'),
-                                onAdd: p.purchasable && p.cheapestVariant != null ? () => _add(p) : null,
-                                onFavorite: _favoriteBusy.contains(p.id) ? null : () => _toggleFavorite(p),
+                                product: product,
+                                isFavorite: favorites.contains(product.id),
+                                onTap: () => context.push('/product/${product.id}'),
+                                onAdd: product.purchasable &&
+                                        product.cheapestVariant != null
+                                    ? () => _add(product)
+                                    : null,
+                                onFavorite: _favoriteBusy.contains(product.id)
+                                    ? null
+                                    : () => _toggleFavorite(product),
                               );
                             },
                           ),
@@ -559,9 +665,15 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
 
   Widget _stat(String value, String label) => Column(
         children: [
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 9, color: spikeMuted)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 9, color: spikeMuted),
+          ),
         ],
       );
 }
@@ -578,13 +690,21 @@ class _FilterGroup extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark ? spikeDarkPanel : spikePanel,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? spikeDarkPanel
+                : spikePanel,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 9),
               Wrap(spacing: 8, runSpacing: 8, children: children),
             ],
