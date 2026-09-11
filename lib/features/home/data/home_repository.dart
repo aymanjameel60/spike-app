@@ -51,14 +51,14 @@ class HomeRepository {
         await prefs.setString(cacheKey, jsonEncode(data));
       }
       return data;
-    } catch (_) {
+    } catch (error) {
       final memory = _memoryCache[key];
       if (memory != null) return memory;
-      if (!persistDisk) return const {};
+      if (!persistDisk) rethrow;
 
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(cacheKey);
-      if (raw == null || raw.isEmpty) return const {};
+      if (raw == null || raw.isEmpty) rethrow;
       try {
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
@@ -69,7 +69,7 @@ class HomeRepository {
       } catch (_) {
         await prefs.remove(cacheKey);
       }
-      return const {};
+      throw error;
     }
   }
 
