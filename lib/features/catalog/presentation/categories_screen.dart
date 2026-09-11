@@ -12,23 +12,14 @@ class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
 
   void _openCategory(BuildContext context, CategoryModel category) {
-    final categoryId = category.effectiveCategoryId;
-    if (categoryId != null) {
+    if (category.opensProducts) {
       context.push(
         Uri(
           path: '/products',
-          queryParameters: {'category': categoryId, 'title': category.name},
-        ).toString(),
-      );
-      return;
-    }
-
-    final collectionId = category.effectiveCollectionId;
-    if (collectionId != null) {
-      context.push(
-        Uri(
-          path: '/products',
-          queryParameters: {'collection': collectionId, 'title': category.name},
+          queryParameters: {
+            'category': category.id,
+            'title': category.name,
+          },
         ).toString(),
       );
       return;
