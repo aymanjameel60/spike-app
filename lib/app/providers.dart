@@ -30,6 +30,36 @@ final productsProvider=FutureProvider.family<List<ProductModel>,(String?,String?
 final productProvider=FutureProvider.family<ProductModel?,String>((ref,id)=>ref.watch(catalogRepositoryProvider).product(id));
 final storesProvider=FutureProvider<List<StoreModel>>((ref)=>ref.watch(catalogRepositoryProvider).stores());
 final allProductsProvider=FutureProvider<List<ProductModel>>((ref)=>ref.watch(catalogRepositoryProvider).products());
+final storeProductsProvider=FutureProvider.family<List<ProductModel>,String>((ref,id)async{
+  final repo=ref.watch(catalogRepositoryProvider);
+  final first=await repo.pagedProducts(storeId:id,page:1,pageSize:100);
+  if(!first.hasNext)return first.items;
+  final items=<ProductModel>[...first.items];
+  var page=2;
+  var hasNext=true;
+  while(hasNext&&page<=20){
+    final next=await repo.pagedProducts(storeId:id,page:page,pageSize:100);
+    items.addAll(next.items);
+    hasNext=next.hasNext;
+    page++;
+  }
+  return items;
+});
+final offersProductsProvider=FutureProvider<List<ProductModel>>((ref)async{
+  final repo=ref.watch(catalogRepositoryProvider);
+  final first=await repo.pagedProducts(offersOnly:true,page:1,pageSize:100);
+  if(!first.hasNext)return first.items;
+  final items=<ProductModel>[...first.items];
+  var page=2;
+  var hasNext=true;
+  while(hasNext&&page<=20){
+    final next=await repo.pagedProducts(offersOnly:true,page:page,pageSize:100);
+    items.addAll(next.items);
+    hasNext=next.hasNext;
+    page++;
+  }
+  return items;
+});
 final cartRepositoryProvider=Provider<CartRepository>((ref)=>CartRepository(ref.watch(apiClientProvider),ref.watch(tokenStorageProvider)));
 final cartCountProvider=FutureProvider.autoDispose<int>((ref)async{try{final cart=await ref.watch(cartRepositoryProvider).load();return cart.items.fold<int>(0,(sum,item)=>sum+item.quantity);}catch(_){return 0;}});
 final engagementRepositoryProvider=Provider<EngagementRepository>((ref)=>EngagementRepository(ref.watch(apiClientProvider), ref.watch(tokenStorageProvider)));
@@ -43,7 +73,20 @@ final unreadNotificationsProvider=Provider<int>((ref){final data=ref.watch(notif
 final wishlistIdsProvider=FutureProvider.autoDispose<Set<String>>((ref)async=>(await ref.watch(engagementRepositoryProvider).wishlistIds()).toSet());
 final announcementsProvider=FutureProvider.autoDispose<List<Map<String,dynamic>>>((ref)async{try{return await ref.watch(engagementRepositoryProvider).announcements();}catch(_){return const[];}});
 final storeReviewsProvider=FutureProvider.autoDispose.family<Map<String,dynamic>,String>((ref,id)=>ref.watch(engagementRepositoryProvider).storeReviews(id));
-final favoritesProvider=FutureProvider.autoDispose<List<ProductModel>>((ref)async{final ids=await ref.watch(wishlistIdsProvider.future);final products=await ref.watch(allProductsProvider.future);return products.where((p)=>ids.contains(p.id)).toList();});
+final favoritesProvider=FutureProvider.autoDispose<List<ProductModel>>((ref)async{
+  final ids=(await ref.watch(wishlistIdsProvider.future)).toList();
+  if(ids.isEmpty)return const[];
+  final repo=ref.watch(catalogRepositoryProvider);
+  final items=<ProductModel>[];
+  for(var start=0;start<ids.length;start+=100){
+    final end=(start+100<ids.length)?start+100:ids.length;
+    final page=await repo.pagedProducts(ids:ids.sublist(start,end),pageSize:100);
+    items.addAll(page.items);
+  }
+  final order={for(var i=0;i<ids.length;i++)ids[i]:i};
+  items.sort((a,b)=>(order[a.id]??999999).compareTo(order[b.id]??999999));
+  return items;
+});
 final commerceRepositoryProvider=Provider<CommerceRepository>((ref)=>CommerceRepository(ref.watch(apiClientProvider)));
 final hasSessionProvider=FutureProvider<bool>((ref)async=>(await ref.watch(tokenStorageProvider).readToken())?.isNotEmpty==true);
 final citiesProvider=FutureProvider<List<CityModel>>((ref)=>ref.watch(commerceRepositoryProvider).cities());
