@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../app/providers.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
+import '../../../models/category.dart';
 import '../../../models/product.dart';
 import '../../../widgets/product_card.dart';
 
@@ -29,18 +30,69 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     return original > p.price && original > 0 ? (original - p.price) / original : 0;
   }
 
-  String _productsLocation({String? categoryId, required String title}) {
+  CategoryModel? _currentCategory(List<CategoryModel> categories) {
+    final categoryId = widget.categoryId?.trim() ?? '';
+    final collectionId = widget.collectionId?.trim() ?? '';
+
+    for (final category in categories) {
+      if (categoryId.isNotEmpty &&
+          (category.effectiveCategoryId == categoryId || category.id == categoryId)) {
+        return category;
+      }
+      if (collectionId.isNotEmpty &&
+          (category.effectiveCollectionId == collectionId || category.id == collectionId)) {
+        return category;
+      }
+    }
+    return null;
+  }
+
+  String _productsLocation({
+    String? categoryId,
+    String? collectionId,
+    required String title,
+  }) {
     final params = <String, String>{'title': title};
-    if (categoryId != null && categoryId.isNotEmpty) params['category'] = categoryId;
-    if ((widget.collectionId ?? '').isNotEmpty) params['collection'] = widget.collectionId!;
+    if ((categoryId ?? '').isNotEmpty) params['category'] = categoryId!;
+    if ((collectionId ?? '').isNotEmpty) params['collection'] = collectionId!;
     return Uri(path: '/products', queryParameters: params).toString();
   }
 
+  void _goToCategory(CategoryModel? category) {
+    if (category == null) {
+      context.go(_productsLocation(title: 'المنتجات'));
+      return;
+    }
+
+    final categoryId = category.effectiveCategoryId;
+    if (categoryId != null) {
+      context.go(_productsLocation(categoryId: categoryId, title: category.name));
+      return;
+    }
+
+    final collectionId = category.effectiveCollectionId;
+    if (collectionId != null) {
+      context.go(_productsLocation(collectionId: collectionId, title: category.name));
+      return;
+    }
+
+    if (category.actionType == 'all_categories' || category.showAsMore) {
+      context.go('/categories');
+      return;
+    }
+
+    if (category.actionType == 'section') {
+      context.go('/');
+    }
+  }
+
   void _showFilters() {
-    final categories = ref.read(categoriesProvider).valueOrNull ?? const [];
+    final categories = ref.read(categoriesProvider).valueOrNull ?? const <CategoryModel>[];
+    final navigableCategories = categories.where((category) => category.opensProducts).toList();
+    final currentCategory = _currentCategory(navigableCategories);
     var localSort = _sort;
     var localSpecial = _specialFilter;
-    String? localCategoryId = widget.categoryId;
+    String? localCategoryKey = currentCategory?.id;
 
     showModalBottomSheet<void>(
       context: context,
@@ -48,24 +100,40 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setLocal) => SafeArea(
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(18, 22, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 26),
+            padding: EdgeInsets.fromLTRB(
+              18,
+              22,
+              18,
+              MediaQuery.viewInsetsOf(sheetContext).bottom + 26,
+            ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Center(
                 child: Container(
                   width: 42,
                   height: 4,
-                  decoration: BoxDecoration(color: Theme.of(sheetContext).dividerColor, borderRadius: BorderRadius.circular(5)),
+                  decoration: BoxDecoration(
+                    color: Theme.of(sheetContext).dividerColor,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
               Row(children: [
-                const Expanded(child: Text('فلترة وترتيب المنتجات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
-                IconButton(onPressed: () => Navigator.pop(sheetContext), icon: const Icon(LucideIcons.x, size: 20)),
+                const Expanded(
+                  child: Text(
+                    'فلترة وترتيب المنتجات',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  icon: const Icon(LucideIcons.x, size: 20),
+                ),
                 TextButton(
                   onPressed: () => setLocal(() {
                     localSort = 'relevance';
                     localSpecial = 'all';
-                    localCategoryId = null;
+                    localCategoryKey = null;
                   }),
                   child: const Text('مسح الكل', style: TextStyle(fontSize: 10, color: spikeRed)),
                 ),
@@ -81,13 +149,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   _Chip('الأعلى خصمًا', localSort == 'discount', () => setLocal(() => localSort = 'discount')),
                 ],
               ),
-              if (categories.isNotEmpty)
+              if (navigableCategories.isNotEmpty)
                 _FilterGroup(
                   title: 'الفئة',
                   children: [
-                    _Chip('الكل', localCategoryId == null, () => setLocal(() => localCategoryId = null)),
-                    for (final category in categories)
-                      _Chip(category.name, localCategoryId == category.id, () => setLocal(() => localCategoryId = category.id)),
+                    _Chip('الكل', localCategoryKey == null, () => setLocal(() => localCategoryKey = null)),
+                    for (final category in navigableCategories)
+                      _Chip(
+                        category.name,
+                        localCategoryKey == category.id,
+                        () => setLocal(() => localCategoryKey = category.id),
+                      ),
                   ],
                 ),
               _FilterGroup(
@@ -101,28 +173,42 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               SizedBox(
                 height: 39,
                 child: FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: spikeRed, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: spikeRed,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                  ),
                   onPressed: () {
-                    String? selectedTitle;
-                    if (localCategoryId != null) {
-                      for (final category in categories) {
-                        if (category.id == localCategoryId) {
-                          selectedTitle = category.name;
+                    CategoryModel? selectedCategory;
+                    if (localCategoryKey != null) {
+                      for (final category in navigableCategories) {
+                        if (category.id == localCategoryKey) {
+                          selectedCategory = category;
                           break;
                         }
                       }
                     }
+
                     setState(() {
                       _sort = localSort;
                       _specialFilter = localSpecial;
                     });
                     Navigator.pop(sheetContext);
-                    if (localCategoryId != widget.categoryId) {
-                      final title = selectedTitle ?? (widget.collectionId == null ? 'المنتجات' : widget.title);
-                      context.go(_productsLocation(categoryId: localCategoryId, title: title));
+
+                    final selectedCategoryId = selectedCategory?.effectiveCategoryId;
+                    final selectedCollectionId = selectedCategory?.effectiveCollectionId;
+                    final currentCategoryId = currentCategory?.effectiveCategoryId ?? widget.categoryId;
+                    final currentCollectionId = currentCategory?.effectiveCollectionId ?? widget.collectionId;
+                    final destinationChanged = selectedCategoryId != currentCategoryId ||
+                        selectedCollectionId != currentCollectionId;
+
+                    if (destinationChanged) {
+                      _goToCategory(selectedCategory);
                     }
                   },
-                  child: const Text('عرض النتائج', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  child: const Text(
+                    'عرض النتائج',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
             ]),
@@ -145,7 +231,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       }
       ref.invalidate(wishlistIdsProvider);
       ref.invalidate(favoritesProvider);
-      if (mounted) showSpikeToast(context, active ? 'تمت إزالة المنتج من المفضلة' : 'تمت إضافة المنتج إلى المفضلة');
+      if (mounted) {
+        showSpikeToast(
+          context,
+          active ? 'تمت إزالة المنتج من المفضلة' : 'تمت إضافة المنتج إلى المفضلة',
+        );
+      }
     } catch (e) {
       if (mounted) showSpikeToast(context, e.toString());
     } finally {
@@ -167,20 +258,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(productsProvider((widget.categoryId, widget.collectionId)));
-    final categories = ref.watch(categoriesProvider).valueOrNull ?? const [];
+    final categories = ref.watch(categoriesProvider).valueOrNull ?? const <CategoryModel>[];
+    final currentCategory = _currentCategory(categories);
+    final resolvedCategoryId = currentCategory?.effectiveCategoryId ?? widget.categoryId;
+    final resolvedCollectionId = currentCategory?.effectiveCollectionId ?? widget.collectionId;
+    final state = ref.watch(productsProvider((resolvedCategoryId, resolvedCollectionId)));
     final favorites = ref.watch(wishlistIdsProvider).valueOrNull ?? <String>{};
     final dark = Theme.of(context).brightness == Brightness.dark;
 
-    var displayTitle = widget.title;
-    if ((widget.categoryId ?? '').isNotEmpty) {
-      for (final category in categories) {
-        if (category.id == widget.categoryId) {
-          displayTitle = category.name;
-          break;
-        }
-      }
-    }
+    final displayTitle = widget.title != 'المنتجات'
+        ? widget.title
+        : (currentCategory?.name ?? widget.title);
 
     return Scaffold(
       body: SafeArea(
@@ -208,7 +296,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(displayTitle, maxLines: 1, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        displayTitle,
+                        maxLines: 1,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
                 ),
@@ -234,14 +327,23 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           Expanded(
             child: state.when(
               loading: () => const SpikeLoading(),
-              error: (e, _) => SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(productsProvider((widget.categoryId, widget.collectionId)))),
+              error: (e, _) => SpikeErrorState(
+                message: e.toString(),
+                onRetry: () => ref.invalidate(
+                  productsProvider((resolvedCategoryId, resolvedCollectionId)),
+                ),
+              ),
               data: (products) {
-                final list = products.where((p) => _specialFilter != 'offers' || _discount(p) > 0).toList();
+                final list = products
+                    .where((p) => _specialFilter != 'offers' || _discount(p) > 0)
+                    .toList();
                 if (_sort == 'price-low') list.sort((a, b) => a.price.compareTo(b.price));
                 if (_sort == 'price-high') list.sort((a, b) => b.price.compareTo(a.price));
                 if (_sort == 'rating') list.sort((a, b) => b.rating.compareTo(a.rating));
                 if (_sort == 'discount') list.sort((a, b) => _discount(b).compareTo(_discount(a)));
-                if (list.isEmpty) return const SpikeEmptyState(message: 'لا توجد منتجات في هذا القسم حالياً');
+                if (list.isEmpty) {
+                  return const SpikeEmptyState(message: 'لا توجد منتجات في هذا القسم حالياً');
+                }
 
                 return GridView.builder(
                   padding: const EdgeInsets.fromLTRB(17, 4, 17, 24),
@@ -309,11 +411,21 @@ class _Chip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
-            color: selected ? spikeRed : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF24252A) : const Color(0xFFF1F1F1)),
+            color: selected
+                ? spikeRed
+                : (Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF24252A)
+                    : const Color(0xFFF1F1F1)),
             borderRadius: BorderRadius.circular(17),
             border: Border.all(color: selected ? spikeRed : Theme.of(context).dividerColor),
           ),
-          child: Text(label, style: TextStyle(fontSize: 10, color: selected ? Theme.of(context).colorScheme.surface : null)),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: selected ? Theme.of(context).colorScheme.surface : null,
+            ),
+          ),
         ),
       );
 }
