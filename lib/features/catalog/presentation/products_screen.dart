@@ -168,8 +168,19 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productsProvider((widget.categoryId, widget.collectionId)));
+    final categories = ref.watch(categoriesProvider).valueOrNull ?? const [];
     final favorites = ref.watch(wishlistIdsProvider).valueOrNull ?? <String>{};
     final dark = Theme.of(context).brightness == Brightness.dark;
+
+    var displayTitle = widget.title;
+    if ((widget.categoryId ?? '').isNotEmpty) {
+      for (final category in categories) {
+        if (category.id == widget.categoryId) {
+          displayTitle = category.name;
+          break;
+        }
+      }
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -197,7 +208,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(widget.title, maxLines: 1, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
+                      child: Text(displayTitle, maxLines: 1, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
                     ),
                   ),
                 ),
