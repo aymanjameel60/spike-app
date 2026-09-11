@@ -144,7 +144,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final panel = dark ? spikeDarkPanel : spikePanel;
     final cardColor = dark ? const Color(0xFF1D1D1D) : Colors.white;
     final hasAddress = address != null;
-    final ready = hasAddress && payment != null && currency != null && quote != null && !busy;
+    final walletData = ref.watch(walletProvider).valueOrNull;
+    final wallet = walletData?['wallet'];
+    final spikeWalletBalance = double.tryParse('${wallet?['balance'] ?? 0}') ?? 0;
+    final spikeWalletCurrency = '${wallet?['currency_code'] ?? 'USD'}'.toUpperCase();
+    final ready = hasAddress && payment != null && currency != null && quote != null && payment?.method != 'wallet' && !busy;
     final delivery = quote == null ? null : quote!.shippingUsd * cart!.exchangeRateFromUsd;
     final productsBeforeDiscount = cart!.originalSubtotal;
     final discount = cart!.saving.clamp(0, double.infinity).toDouble();
@@ -166,7 +170,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ],
                 const SizedBox(height: 12),
                 Container(
-                  minHeight: 44,
+                  constraints: const BoxConstraints(minHeight: 44),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(color: panel, borderRadius: BorderRadius.circular(22)),
                   child: Row(children: [
@@ -213,6 +217,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 if (payment?.method == 'transfer' && hasAddress) ...[
                   const SizedBox(height: 12),
                   _TransferAccounts(accounts: paymentAccounts, fallbackInstructions: payment?.instructions ?? '', cardColor: cardColor),
+                ],
+                if (payment?.method == 'wallet' && hasAddress) ...[
+                  const SizedBox(height: 12),
+                  _PaymentNotice(
+                    icon: LucideIcons.walletCards,
+                    title: 'محفظة إلكترونية',
+                    text: 'هذا الخيار يعتمد على مزود محفظة خارجي. سيتم تفعيل إكمال الدفع بعد ربط مزود الدفع والتحقق الآمن.',
+                    cardColor: cardColor,
+                  ),
+                ],
+                if (payment?.method == 'spike_wallet' && hasAddress) ...[
+                  const SizedBox(height: 12),
+                  _SpikeWalletPanel(
+                    balance: spikeWalletBalance,
+                    currency: spikeWalletCurrency,
+                    cardColor: cardColor,
+                  ),
                 ],
                 const SizedBox(height: 13),
                 Container(
@@ -353,6 +374,73 @@ class _TransferAccounts extends StatelessWidget {
               ),
             )),
           const Text('بعد إنشاء الطلب ارفع سند الحوالة من صفحة طلباتي، ثم تراجعه الإدارة قبل انتقال الطلب للمتجر.', style: TextStyle(fontSize: 9, color: spikeMuted, height: 1.5)),
+        ]),
+      );
+}
+
+class _PaymentNotice extends StatelessWidget {
+  const _PaymentNotice({required this.icon, required this.title, required this.text, required this.cardColor});
+  final IconData icon;
+  final String title, text;
+  final Color cardColor;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(text, style: const TextStyle(fontSize: 10, color: spikeMuted, height: 1.5)),
+            ]),
+          ),
+        ]),
+      );
+}
+
+class _SpikeWalletPanel extends StatelessWidget {
+  const _SpikeWalletPanel({required this.balance, required this.currency, required this.cardColor});
+  final double balance;
+  final String currency;
+  final Color cardColor;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Row(children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: spikeField, borderRadius: BorderRadius.circular(13)),
+            child: const Icon(LucideIcons.wallet, size: 20),
+          ),
+          const SizedBox(width: 11),
+          const Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('محفظة Spike', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              SizedBox(height: 3),
+              Text('سيتم خصم قيمة الطلب مباشرة من رصيد محفظتك.', style: TextStyle(fontSize: 9, color: spikeMuted)),
+            ]),
+          ),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            const Text('الرصيد المتاح', style: TextStyle(fontSize: 9, color: spikeMuted)),
+            Text('${balance.toStringAsFixed(2)} $currency', textDirection: TextDirection.ltr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          ]),
         ]),
       );
 }
