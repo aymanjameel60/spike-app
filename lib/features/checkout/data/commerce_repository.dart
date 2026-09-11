@@ -52,9 +52,9 @@ class PaymentMethodModel {
   String get label {
     switch (method) {
       case 'wallet':
-        return 'محفظة مالية';
+        return 'محفظة إلكترونية';
       case 'spike_wallet':
-        return 'محفظة Spike';
+        return 'محفظة سبايك';
       case 'cod':
         return 'الدفع عند الاستلام';
       case 'transfer':
@@ -71,15 +71,27 @@ class ElectronicWalletModel {
     required this.name,
     required this.logoUrl,
     required this.instructions,
+    required this.paymentMode,
+    required this.accountName,
+    required this.accountNumber,
+    required this.apiProviderCode,
   });
 
   final String id, name, logoUrl, instructions;
+  final String paymentMode, accountName, accountNumber, apiProviderCode;
+
+  bool get supportsManual => paymentMode == 'manual' || paymentMode == 'both';
+  bool get supportsApi => paymentMode == 'api' || paymentMode == 'both';
 
   factory ElectronicWalletModel.fromJson(Map<String, dynamic> j) => ElectronicWalletModel(
         id: '${j['id'] ?? ''}',
         name: '${j['name'] ?? ''}',
         logoUrl: ApiConfig.resolveMedia('${j['logo_url'] ?? ''}'),
         instructions: '${j['instructions'] ?? ''}',
+        paymentMode: '${j['payment_mode'] ?? 'manual'}',
+        accountName: '${j['account_name'] ?? ''}',
+        accountNumber: '${j['account_number'] ?? ''}',
+        apiProviderCode: '${j['api_provider_code'] ?? ''}',
       );
 }
 
@@ -157,11 +169,13 @@ class OrderModel {
     required this.paymentStatus,
     required this.currencyCode,
     required this.total,
+    required this.spikeWalletAmount,
+    required this.remainingAmount,
     required this.createdAt,
   });
 
   final String id, status, paymentMethod, paymentStatus, currencyCode, createdAt;
-  final double total;
+  final double total, spikeWalletAmount, remainingAmount;
 
   factory OrderModel.fromJson(Map<String, dynamic> j) => OrderModel(
         id: '${j['id'] ?? ''}',
@@ -170,6 +184,8 @@ class OrderModel {
         paymentStatus: '${j['payment_status'] ?? ''}',
         currencyCode: '${j['currency_code'] ?? ''}',
         total: double.tryParse('${j['total'] ?? 0}') ?? 0,
+        spikeWalletAmount: double.tryParse('${j['spike_wallet_amount'] ?? 0}') ?? 0,
+        remainingAmount: double.tryParse('${j['remaining_amount'] ?? j['total'] ?? 0}') ?? 0,
         createdAt: '${j['created_at'] ?? ''}',
       );
 
@@ -315,6 +331,23 @@ class CommerceRepository {
     });
     return OrderModel.fromJson(Map<String, dynamic>.from(d['order'] as Map));
   }
+
+  Future<Map<String, dynamic>> configurePaymentPlan({
+    required String orderId,
+    required String secondaryMethod,
+    bool useSpikeWallet = false,
+    String? electronicWalletId,
+    String? walletExecutionMode,
+  }) async =>
+      _api.post('/customer-orders/$orderId/payment-plan', auth: true, data: {
+        'secondary_method': secondaryMethod,
+        'use_spike_wallet': useSpikeWallet,
+        if (electronicWalletId != null && electronicWalletId.isNotEmpty) 'electronic_wallet_id': electronicWalletId,
+        if (walletExecutionMode != null && walletExecutionMode.isNotEmpty) 'wallet_execution_mode': walletExecutionMode,
+      });
+
+  Future<Map<String, dynamic>> paymentPlan(String orderId) =>
+      _api.get('/customer-orders/$orderId/payment-plan', auth: true);
 
   Future<List<OrderModel>> orders() async {
     final d = await _api.get('/orders', auth: true);
