@@ -87,9 +87,9 @@ class AddressesScreen extends ConsumerWidget {
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                              Text('${a.label.isEmpty ? 'عنوان التوصيل' : a.label} - ${a.cityName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                                              Text(a.addressLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                                               const SizedBox(height: 4),
-                                              Text(a.addressLine, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: spikeMuted)),
+                                              Text('${a.recipientName} • ${a.phone}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: spikeMuted)),
                                             ]),
                                           ),
                                           SizedBox(width: 25, child: a.isActive ? const Icon(Icons.check, size: 18) : null),
@@ -141,8 +141,6 @@ class AddressFormScreen extends ConsumerStatefulWidget {
 }
 
 class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
-  late final TextEditingController name;
-  late final TextEditingController phone;
   late final TextEditingController line;
   late final TextEditingController maps;
   String? cityId;
@@ -154,8 +152,6 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
   void initState() {
     super.initState();
     final a = widget.address;
-    name = TextEditingController(text: a?.recipientName ?? '');
-    phone = TextEditingController(text: a?.phone ?? '');
     line = TextEditingController(text: a?.addressLine ?? '');
     maps = TextEditingController(text: a?.googleMapsUrl ?? '');
     cityId = a?.cityId;
@@ -165,8 +161,6 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
 
   @override
   void dispose() {
-    name.dispose();
-    phone.dispose();
     line.dispose();
     maps.dispose();
     super.dispose();
@@ -206,8 +200,15 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
 
   Future<void> save() async {
     if (busy) return;
-    if (cityId == null || name.text.trim().isEmpty || phone.text.trim().isEmpty || line.text.trim().isEmpty) {
-      showSpikeToast(context, 'أكمل جميع الحقول المطلوبة');
+    final user = await ref.read(currentUserProvider.future);
+    final recipientName = '${user?['name'] ?? ''}'.trim();
+    final recipientPhone = '${user?['phone'] ?? ''}'.trim();
+    if (recipientName.isEmpty || recipientPhone.isEmpty) {
+      if (mounted) showSpikeToast(context, 'أكمل الاسم ورقم الجوال في البيانات الشخصية أولاً');
+      return;
+    }
+    if (cityId == null || line.text.trim().isEmpty) {
+      if (mounted) showSpikeToast(context, 'أكمل العنوان ومدينة التغطية');
       return;
     }
     setState(() => busy = true);
@@ -218,8 +219,8 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
         await repository.createAddress(
           cityId: cityId!,
           label: label,
-          recipientName: name.text.trim(),
-          phone: phone.text.trim(),
+          recipientName: recipientName,
+          phone: recipientPhone,
           addressLine: line.text.trim(),
           googleMapsUrl: maps.text.trim(),
           isActive: existing.isEmpty ? true : active,
@@ -229,8 +230,8 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
           widget.address!.id,
           cityId: cityId!,
           label: label,
-          recipientName: name.text.trim(),
-          phone: phone.text.trim(),
+          recipientName: recipientName,
+          phone: recipientPhone,
           addressLine: line.text.trim(),
           googleMapsUrl: maps.text.trim(),
           isActive: active,
@@ -251,6 +252,10 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
   @override
   Widget build(BuildContext context) {
     final cities = ref.watch(citiesProvider);
+    final personal = ref.watch(currentUserProvider);
+    final personalUser = personal.valueOrNull;
+    final personalName = '${personalUser?['name'] ?? ''}'.trim();
+    final personalPhone = '${personalUser?['phone'] ?? ''}'.trim();
     final dark = Theme.of(context).brightness == Brightness.dark;
     final card = dark ? const Color(0xFF1D1D1D) : Colors.white;
     return Scaffold(
@@ -270,7 +275,11 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                 children: [
                   const Text('تفاصيل العنوان', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
-                  _ReferenceField(controller: line, icon: LucideIcons.house, hint: 'العنوان بالتفصيل *'),
+                  _ReferenceField(controller: line, icon: LucideIcons.house, hint: 'العنوان *'),
+                  const SizedBox(height: 12),
+                  _ReferenceField(controller: maps, icon: LucideIcons.mapPin, hint: 'رابط Google Maps (اختياري)', keyboard: TextInputType.url, ltr: true),
+                  const SizedBox(height: 7),
+                  const Text('Google Maps اختياري ويساعد على حساب التوصيل بدقة أكبر.', style: TextStyle(fontSize: 10, color: spikeMuted, height: 1.45)),
                   const SizedBox(height: 12),
                   Container(
                     height: 54,
@@ -284,7 +293,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                           child: DropdownButton<String>(
                             value: cityId,
                             isExpanded: true,
-                            hint: Text('اختر مدينة التغطية *', style: spikeTextStyle(fontSize: 13, color: spikeMuted)),
+                            hint: Text('مدينة التغطية *', style: spikeTextStyle(fontSize: 13, color: spikeMuted)),
                             items: list.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, style: spikeTextStyle(fontSize: 13)))).toList(),
                             onChanged: (v) => setState(() => cityId = v),
                           ),
@@ -292,16 +301,14 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                       ),
                     ]),
                   ),
-                  const SizedBox(height: 12),
-                  _ReferenceField(controller: maps, icon: LucideIcons.mapPin, hint: 'رابط Google Maps (اختياري)', keyboard: TextInputType.url, ltr: true),
-                  const SizedBox(height: 7),
-                  const Text('يفضّل إضافة رابط Google Maps لحساب أجور التوصيل بدقة أكبر. إذا لم تضفه سيستخدم النظام مسافة تقديرية.', style: TextStyle(fontSize: 10, color: spikeMuted, height: 1.45)),
                   const SizedBox(height: 20),
-                  const Text('تفاصيل الاتصال', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+                  const Text('المستلم', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
-                  _ReferenceField(controller: name, icon: LucideIcons.user, hint: 'اسم المستلم *'),
+                  _ProfileContact(icon: LucideIcons.user, label: 'اسم المستلم', value: personalName.isEmpty ? 'أكمل الاسم من البيانات الشخصية' : personalName),
                   const SizedBox(height: 12),
-                  _ReferenceField(controller: phone, icon: LucideIcons.phone, hint: 'رقم الجوال *', keyboard: TextInputType.phone, ltr: true, height: 64),
+                  _ProfileContact(icon: LucideIcons.phone, label: 'رقم الجوال', value: personalPhone.isEmpty ? 'أكمل رقم الجوال من البيانات الشخصية' : personalPhone, ltr: true),
+                  const SizedBox(height: 7),
+                  const Text('اسم المستلم ورقم الجوال مرتبطان ببياناتك الشخصية ولا يتم تعديلهما من العنوان.', style: TextStyle(fontSize: 10, color: spikeMuted, height: 1.45)),
                   const SizedBox(height: 20),
                   const Text('حفظ العنوان باسم', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
@@ -331,7 +338,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                   const SizedBox(height: 18),
                   SizedBox(height: 48, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: spikeYellow, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), onPressed: busy ? null : save, child: busy ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('حفظ العنوان', style: TextStyle(fontWeight: FontWeight.w700)))),
                   const SizedBox(height: 10),
-                  SizedBox(height: 48, child: OutlinedButton(onPressed: busy ? null : () => context.pop(), child: const Text('إلغاء'))),
+                  SizedBox(height: 48, child: OutlinedButton(onPressed: busy ? null : () => context.pop(), child: const Text('إلغاء')),
                 ],
               ),
             ),
@@ -380,6 +387,34 @@ class _ReferenceField extends StatelessWidget {
           style: spikeTextStyle(fontSize: 13),
           decoration: InputDecoration(border: InputBorder.none, hintText: hint, hintStyle: spikeTextStyle(fontSize: 13, color: spikeMuted), prefixIcon: Icon(icon, size: 19, color: spikeMuted), contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12)),
         ),
+      );
+}
+
+class _ProfileContact extends StatelessWidget {
+  const _ProfileContact({required this.icon, required this.label, required this.value, this.ltr = false});
+  final IconData icon;
+  final String label, value;
+  final bool ltr;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        constraints: const BoxConstraints(minHeight: 58),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1D1D1D) : Colors.white,
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 19, color: spikeMuted),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(fontSize: 9, color: spikeMuted)),
+            const SizedBox(height: 2),
+            Text(value, textDirection: ltr ? TextDirection.ltr : TextDirection.rtl, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          ])),
+          const Icon(LucideIcons.lock, size: 15, color: spikeMuted),
+        ]),
       );
 }
 
