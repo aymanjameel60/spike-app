@@ -338,7 +338,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                   const SizedBox(height: 18),
                   SizedBox(height: 48, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: spikeYellow, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), onPressed: busy ? null : save, child: busy ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('حفظ العنوان', style: TextStyle(fontWeight: FontWeight.w700)))),
                   const SizedBox(height: 10),
-                  SizedBox(height: 48, child: OutlinedButton(onPressed: busy ? null : () => context.pop(), child: const Text('إلغاء')),
+                  SizedBox(height: 48, child: OutlinedButton(onPressed: busy ? null : () => context.pop(), child: const Text('إلغاء'))),
                 ],
               ),
             ),
@@ -369,16 +369,15 @@ class _AddressHead extends StatelessWidget {
 }
 
 class _ReferenceField extends StatelessWidget {
-  const _ReferenceField({required this.controller, required this.icon, required this.hint, this.keyboard, this.ltr = false, this.height = 54});
+  const _ReferenceField({required this.controller, required this.icon, required this.hint, this.keyboard, this.ltr = false});
   final TextEditingController controller;
   final IconData icon;
   final String hint;
   final TextInputType? keyboard;
   final bool ltr;
-  final double height;
   @override
   Widget build(BuildContext context) => Container(
-        height: height,
+        height: 54,
         decoration: BoxDecoration(color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1D1D1D) : Colors.white, border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(15)),
         child: TextField(
           controller: controller,
