@@ -91,8 +91,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
     for (final category in categories) {
       if (categoryId.isNotEmpty &&
-          (category.effectiveCategoryId == categoryId ||
-              category.id == categoryId)) {
+          (category.id == categoryId ||
+              category.effectiveCategoryId == categoryId)) {
         return category;
       }
       if (collectionId.isNotEmpty &&
@@ -121,18 +121,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       return;
     }
 
-    final categoryId = category.effectiveCategoryId;
-    if (categoryId != null) {
+    if (category.opensProducts) {
       context.go(
-        _productsLocation(categoryId: categoryId, title: category.name),
-      );
-      return;
-    }
-
-    final collectionId = category.effectiveCollectionId;
-    if (collectionId != null) {
-      context.go(
-        _productsLocation(collectionId: collectionId, title: category.name),
+        _productsLocation(categoryId: category.id, title: category.name),
       );
       return;
     }
@@ -381,18 +372,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                         }
                       }
 
-                      final selectedCategoryId =
-                          selectedCategory?.effectiveCategoryId;
-                      final selectedCollectionId =
-                          selectedCategory?.effectiveCollectionId;
-                      final currentCategoryId =
-                          currentCategory?.effectiveCategoryId ?? widget.categoryId;
-                      final currentCollectionId =
-                          currentCategory?.effectiveCollectionId ??
-                              widget.collectionId;
                       final destinationChanged =
-                          selectedCategoryId != currentCategoryId ||
-                              selectedCollectionId != currentCollectionId;
+                          selectedCategory?.id != currentCategory?.id;
                       final specialChanged = localSpecial != _specialFilter;
 
                       setState(() {
@@ -469,7 +450,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   Widget build(BuildContext context) {
     final categories =
         ref.watch(categoriesProvider).valueOrNull ?? const <CategoryModel>[];
-    final currentCategory = _currentCategory(categories);
+    final navigableCategories =
+        categories.where((category) => category.opensProducts).toList();
+    final currentCategory = _currentCategory(navigableCategories);
     final favorites = ref.watch(wishlistIdsProvider).valueOrNull ?? <String>{};
     final dark = Theme.of(context).brightness == Brightness.dark;
     final displayTitle = widget.title != 'المنتجات'
@@ -558,6 +541,36 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 ),
               ),
             ),
+            if (navigableCategories.isNotEmpty)
+              SizedBox(
+                height: 50,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(17, 4, 17, 8),
+                  child: Row(
+                    children: [
+                      _Chip(
+                        'الكل',
+                        currentCategory == null,
+                        () => _goToCategory(null),
+                      ),
+                      const SizedBox(width: 8),
+                      for (var index = 0;
+                          index < navigableCategories.length;
+                          index++) ...[
+                        _Chip(
+                          navigableCategories[index].name,
+                          currentCategory?.id ==
+                              navigableCategories[index].id,
+                          () => _goToCategory(navigableCategories[index]),
+                        ),
+                        if (index != navigableCategories.length - 1)
+                          const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             Expanded(
               child: _loadingInitial
                   ? const SpikeLoading()
