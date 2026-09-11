@@ -14,15 +14,12 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final shareWin = ref.watch(shareWinPublicProvider).valueOrNull;
+    final shareWin = ref.watch(shareWinPublicProvider);
 
     return SafeArea(
       child: user.when(
         loading: () => const SpikeLoading(),
-        error: (e, _) => SpikeErrorState(
-          message: e.toString(),
-          onRetry: () => ref.invalidate(currentUserProvider),
-        ),
+        error: (e, _) => SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(currentUserProvider)),
         data: (u) {
           final current = u ?? <String, dynamic>{};
           final raw = '${current['avatar_url'] ?? current['avatarUrl'] ?? ''}';
@@ -31,6 +28,8 @@ class ProfileScreen extends ConsumerWidget {
           final phone = '${current['phone'] ?? ''}';
           final rawEmail = '${current['email'] ?? ''}';
           final email = rawEmail.endsWith('@customer.spike.local') ? '' : rawEmail;
+          final shareConfig = shareWin.valueOrNull;
+          final shareEnabled = shareConfig?['enabled'] == true;
 
           return ListView(
             padding: EdgeInsets.zero,
@@ -38,102 +37,79 @@ class ProfileScreen extends ConsumerWidget {
               const _SimpleTitle('الملف الشخصي'),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-                child: Row(
-                  children: [
-                    ClipOval(
-                      child: SizedBox(
-                        width: 70,
-                        height: 70,
-                        child: ColoredBox(
-                          color: spikeRed,
-                          child: avatar.isEmpty
-                              ? const SizedBox.expand()
-                              : SpikeNetworkImage(
-                                  url: avatar,
-                                  width: 70,
-                                  height: 70,
-                                  fit: BoxFit.cover,
-                                ),
-                        ),
+                child: Row(children: [
+                  ClipOval(
+                    child: SizedBox(
+                      width: 70,
+                      height: 70,
+                      child: ColoredBox(
+                        color: spikeRed,
+                        child: avatar.isEmpty ? const SizedBox.expand() : SpikeNetworkImage(url: avatar, width: 70, height: 70, fit: BoxFit.cover),
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        name.isEmpty
-                            ? 'مرحباً بك في Spike\nسجّل الدخول لمتابعة طلباتك وبياناتك'
-                            : 'مرحباً $name${phone.isNotEmpty ? '\n$phone' : ''}${email.isNotEmpty ? '\n$email' : ''}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.7),
-                      ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      name.isEmpty
+                          ? 'مرحباً بك في Spike\nسجّل الدخول لمتابعة طلباتك وبياناتك'
+                          : 'مرحباً $name${phone.isNotEmpty ? '\n$phone' : ''}${email.isNotEmpty ? '\n$email' : ''}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.72),
                     ),
-                  ],
-                ),
+                  ),
+                ]),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 17),
-                child: Column(
-                  children: [
-                    _row(context, LucideIcons.userRound, 'البيانات الشخصية', () => context.push('/personal-data')),
+                child: Column(children: [
+                  _row(context, LucideIcons.userRound, 'البيانات الشخصية', () => context.push('/personal-data')),
+                  const SizedBox(height: 16),
+                  _row(context, LucideIcons.store, 'المتاجر', () => context.push('/stores')),
+                  if (shareEnabled) ...[
                     const SizedBox(height: 16),
-                    _row(context, LucideIcons.store, 'المتاجر', () => context.push('/stores')),
-                    const SizedBox(height: 16),
-                    if (shareWin?['enabled'] == true) ...[
-                      _row(
-                        context,
-                        LucideIcons.gift,
-                        '${shareWin?['headline'] ?? 'شارك واربح'}',
-                        () => u == null
-                            ? context.push('/login?next=${Uri.encodeComponent('/share-win')}')
-                            : context.push('/share-win'),
-                        featured: true,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
                     _row(
                       context,
-                      LucideIcons.walletCards,
-                      'محفظتي',
-                      () => u == null
-                          ? context.push('/login?next=${Uri.encodeComponent('/wallet')}')
-                          : context.push('/wallet'),
+                      LucideIcons.gift,
+                      '${shareConfig?['headline'] ?? 'شارك واربح'}',
+                      () => u == null ? context.push('/login?next=${Uri.encodeComponent('/share-win')}') : context.push('/share-win'),
+                      featured: true,
                     ),
-                    const SizedBox(height: 16),
-                    _row(context, LucideIcons.heart, 'المفضلة', () => context.push('/favorites')),
-                    const SizedBox(height: 16),
-                    _row(context, LucideIcons.packageCheck, 'طلباتي', () => context.push('/orders')),
-                    const SizedBox(height: 16),
-                    _row(context, LucideIcons.messagesSquare, 'خدمة العملاء', () => context.push('/support')),
-                    const SizedBox(height: 16),
-                    _row(context, LucideIcons.shieldCheck, 'سياسة الخصوصية', () => context.push('/privacy')),
-                    const SizedBox(height: 16),
-                    _row(context, LucideIcons.settings2, 'الإعدادات المتقدمة', () => context.push('/settings')),
-                    const SizedBox(height: 16),
-                    _row(context, LucideIcons.store, 'سجّل كتاجر', () => context.push('/vendor-registration'), featured: true),
-                    const SizedBox(height: 16),
-                    if (u != null) ...[
-                      _row(context, LucideIcons.userX, 'حذف الحساب', () => context.push('/delete-account'), danger: true),
-                      const SizedBox(height: 16),
-                    ],
-                    _row(
-                      context,
-                      u == null ? LucideIcons.logIn : LucideIcons.logOut,
-                      u == null ? 'تسجيل الدخول' : 'تسجيل الخروج',
-                      () async {
-                        if (u == null) {
-                          context.push('/login');
-                          return;
-                        }
-                        await ref.read(authRepositoryProvider).logout();
-                        ref.invalidate(currentUserProvider);
-                        ref.invalidate(hasSessionProvider);
-                        ref.invalidate(shareWinMeProvider);
-                        if (context.mounted) context.go('/profile');
-                      },
-                      danger: u != null,
-                    ),
-                    const SizedBox(height: 24),
                   ],
-                ),
+                  const SizedBox(height: 16),
+                  _row(context, LucideIcons.walletCards, 'محفظتي', () => u == null ? context.push('/login?next=${Uri.encodeComponent('/wallet')}') : context.push('/wallet')),
+                  const SizedBox(height: 16),
+                  _row(context, LucideIcons.heart, 'المفضلة', () => context.push('/favorites')),
+                  const SizedBox(height: 16),
+                  _row(context, LucideIcons.packageCheck, 'طلباتي', () => context.push('/orders')),
+                  const SizedBox(height: 16),
+                  _row(context, LucideIcons.messagesSquare, 'خدمة العملاء', () => context.push('/support')),
+                  const SizedBox(height: 16),
+                  _row(context, LucideIcons.shieldCheck, 'سياسة الخصوصية', () => context.push('/privacy')),
+                  const SizedBox(height: 16),
+                  _row(context, LucideIcons.settings2, 'الإعدادات المتقدمة', () => context.push('/settings')),
+                  const SizedBox(height: 16),
+                  _row(context, LucideIcons.store, 'سجّل كتاجر', () => context.push('/vendor-registration'), featured: true),
+                  const SizedBox(height: 16),
+                  _row(
+                    context,
+                    u == null ? LucideIcons.logIn : LucideIcons.logOut,
+                    u == null ? 'تسجيل الدخول' : 'تسجيل الخروج',
+                    () async {
+                      if (u == null) {
+                        context.push('/login');
+                        return;
+                      }
+                      await ref.read(authRepositoryProvider).logout();
+                      ref.invalidate(currentUserProvider);
+                      ref.invalidate(hasSessionProvider);
+                      ref.invalidate(shareWinMeProvider);
+                      ref.invalidate(shareWinPublicProvider);
+                      if (context.mounted) context.go('/profile');
+                    },
+                    danger: u != null,
+                  ),
+                  const SizedBox(height: 24),
+                ]),
               ),
             ],
           );
@@ -142,19 +118,10 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _row(
-    BuildContext context,
-    IconData icon,
-    String label,
-    VoidCallback onTap, {
-    bool danger = false,
-    bool featured = false,
-  }) {
+  Widget _row(BuildContext context, IconData icon, String label, VoidCallback onTap, {bool danger = false, bool featured = false}) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: featured
-          ? (dark ? const Color(0xFF311619) : const Color(0xFFFFF1F2))
-          : (dark ? spikeDarkPanel : spikePanel),
+      color: featured ? (dark ? const Color(0xFF311619) : const Color(0xFFFFF1F2)) : (dark ? spikeDarkPanel : spikePanel),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -163,24 +130,17 @@ class ProfileScreen extends ConsumerWidget {
           height: 43,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Row(
-              children: [
-                Icon(icon, size: 21, color: danger ? spikeRed : Theme.of(context).colorScheme.onSurface),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: danger ? spikeRed : null),
-                  ),
+            child: Row(children: [
+              Icon(icon, size: 21, color: danger ? spikeRed : Theme.of(context).colorScheme.onSurface),
+              const SizedBox(width: 12),
+              Expanded(child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: danger ? spikeRed : null, height: 1.25))),
+              if (featured)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: spikeRed, borderRadius: BorderRadius.circular(20)),
+                  child: const Text('جديد', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
                 ),
-                if (featured)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: spikeRed, borderRadius: BorderRadius.circular(20)),
-                    child: const Text('جديد', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
-                  ),
-              ],
-            ),
+            ]),
           ),
         ),
       ),
@@ -191,12 +151,6 @@ class ProfileScreen extends ConsumerWidget {
 class _SimpleTitle extends StatelessWidget {
   const _SimpleTitle(this.title);
   final String title;
-
   @override
-  Widget build(BuildContext context) => SizedBox(
-        height: 60,
-        child: Center(
-          child: Text(title, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
-        ),
-      );
+  Widget build(BuildContext context) => SizedBox(height: 60, child: Center(child: Text(title, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700))));
 }
