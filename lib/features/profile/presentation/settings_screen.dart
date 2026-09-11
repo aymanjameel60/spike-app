@@ -6,6 +6,7 @@ import '../../../app/providers.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
+import '../../checkout/data/commerce_repository.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -141,7 +142,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showCurrencySheet(BuildContext context, List<CurrencyModel> items, String current, AppSettingsNotifier ctrl) async {
+  Future<void> _showCurrencySheet(BuildContext context, List<CurrencyModel> items, String current, AppSettingsController ctrl) async {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
