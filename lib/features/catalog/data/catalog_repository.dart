@@ -28,6 +28,7 @@ class CatalogRepository {
 
   final ApiClient _api;
   final Map<String, Map<String, dynamic>> _memoryCache = {};
+  List<CategoryModel>? _categoriesCache;
 
   static const _cachePrefix = 'spike_catalog_cache_v1_';
 
@@ -73,18 +74,61 @@ class CatalogRepository {
       .map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e)))
       .toList();
 
+  Future<(String?, String?)> _resolveProductDestination(
+    String? categoryId,
+    String? collectionId,
+  ) async {
+    if ((collectionId ?? '').isNotEmpty || (categoryId ?? '').isEmpty) {
+      return (categoryId, collectionId);
+    }
+
+    final categories = await this.categories();
+    var currentId = categoryId!.trim();
+    final visited = <String>{};
+
+    for (var depth = 0; depth < 6; depth++) {
+      if (!visited.add(currentId)) break;
+
+      CategoryModel? current;
+      for (final category in categories) {
+        if (category.id == currentId) {
+          current = category;
+          break;
+        }
+      }
+      if (current == null) break;
+
+      final collectionTarget = current.effectiveCollectionId;
+      if (collectionTarget != null) return (null, collectionTarget);
+
+      final categoryTarget = current.effectiveCategoryId;
+      if (categoryTarget == null || categoryTarget == currentId) {
+        return (currentId, null);
+      }
+      currentId = categoryTarget;
+    }
+
+    return (currentId, null);
+  }
+
   Future<List<ProductModel>> products({
     String? categoryId,
     String? collectionId,
   }) async {
-    final key = 'products_${categoryId ?? 'all'}_${collectionId ?? 'all'}';
+    final destination = await _resolveProductDestination(categoryId, collectionId);
+    final resolvedCategoryId = destination.$1;
+    final resolvedCollectionId = destination.$2;
+    final key =
+        'products_${resolvedCategoryId ?? 'all'}_${resolvedCollectionId ?? 'all'}';
     final data = await _get(
       key,
       '/products',
       persistDisk: false,
       query: {
-        if (categoryId != null && categoryId.isNotEmpty) 'category_id': categoryId,
-        if (collectionId != null && collectionId.isNotEmpty) 'collection_id': collectionId,
+        if ((resolvedCategoryId ?? '').isNotEmpty)
+          'category_id': resolvedCategoryId,
+        if ((resolvedCollectionId ?? '').isNotEmpty)
+          'collection_id': resolvedCollectionId,
       },
     );
     return _mapProducts(data['products']);
@@ -108,13 +152,18 @@ class CatalogRepository {
             .take(100)
             .toList() ??
         const <String>[];
+    final destination = await _resolveProductDestination(categoryId, collectionId);
+    final resolvedCategoryId = destination.$1;
+    final resolvedCollectionId = destination.$2;
 
     try {
       final data = await _api.get('/products-paged', query: {
         'page': safePage,
         'page_size': safeSize,
-        if ((categoryId ?? '').isNotEmpty) 'category_id': categoryId,
-        if ((collectionId ?? '').isNotEmpty) 'collection_id': collectionId,
+        if ((resolvedCategoryId ?? '').isNotEmpty)
+          'category_id': resolvedCategoryId,
+        if ((resolvedCollectionId ?? '').isNotEmpty)
+          'collection_id': resolvedCollectionId,
         if ((storeId ?? '').isNotEmpty) 'store_id': storeId,
         if (offersOnly) 'offers_only': 'true',
         if (idList.isNotEmpty) 'ids': idList.join(','),
@@ -197,11 +246,15 @@ class CatalogRepository {
   }
 
   Future<List<CategoryModel>> categories() async {
+    final cached = _categoriesCache;
+    if (cached != null) return cached;
     final data = await _get('categories', '/categories');
-    return (data['categories'] as List? ?? const [])
+    final result = (data['categories'] as List? ?? const [])
         .whereType<Map>()
         .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
         .where((e) => e.enabled)
         .toList();
+    _categoriesCache = result;
+    return result;
   }
 }
