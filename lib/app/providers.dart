@@ -10,6 +10,7 @@ import '../features/engagement/data/engagement_repository.dart';
 import '../features/engagement/data/share_win_repository.dart';
 import '../features/home/data/home_repository.dart';
 import '../features/profile/data/marketplace_repository.dart';
+import '../models/banner_item.dart';
 import '../models/category.dart';
 import '../models/product.dart';
 import '../models/store.dart';
@@ -22,6 +23,7 @@ final currentUserProvider=FutureProvider<Map<String,dynamic>?>((ref)=>ref.watch(
 final homeRepositoryProvider=Provider<HomeRepository>((ref)=>HomeRepository(ref.watch(apiClientProvider)));
 final homeDataProvider=FutureProvider<HomeData>((ref)=>ref.watch(homeRepositoryProvider).load());
 final brandingLogoProvider=FutureProvider<String?>((ref)=>ref.watch(homeRepositoryProvider).brandingLogo());
+final popupBannersProvider=FutureProvider<List<BannerItem>>((ref)=>ref.watch(homeRepositoryProvider).popupBanners());
 final catalogRepositoryProvider=Provider<CatalogRepository>((ref)=>CatalogRepository(ref.watch(apiClientProvider)));
 final categoriesProvider=FutureProvider<List<CategoryModel>>((ref)=>ref.watch(catalogRepositoryProvider).categories());
 final productsProvider=FutureProvider.family<List<ProductModel>,(String?,String?)>((ref,q)=>ref.watch(catalogRepositoryProvider).products(categoryId:q.$1,collectionId:q.$2));
@@ -32,7 +34,7 @@ final cartRepositoryProvider=Provider<CartRepository>((ref)=>CartRepository(ref.
 final cartCountProvider=FutureProvider.autoDispose<int>((ref)async{try{final cart=await ref.watch(cartRepositoryProvider).load();return cart.items.fold<int>(0,(sum,item)=>sum+item.quantity);}catch(_){return 0;}});
 final engagementRepositoryProvider=Provider<EngagementRepository>((ref)=>EngagementRepository(ref.watch(apiClientProvider), ref.watch(tokenStorageProvider)));
 final shareWinRepositoryProvider=Provider<ShareWinRepository>((ref)=>ShareWinRepository(ref.watch(apiClientProvider)));
-final shareWinPublicProvider=FutureProvider.autoDispose<Map<String,dynamic>>((ref)=>ref.watch(shareWinRepositoryProvider).publicConfig());
+final shareWinPublicProvider=FutureProvider<Map<String,dynamic>>((ref)=>ref.watch(shareWinRepositoryProvider).publicConfig());
 final shareWinMeProvider=FutureProvider.autoDispose<Map<String,dynamic>>((ref)=>ref.watch(shareWinRepositoryProvider).me());
 final marketplaceRepositoryProvider=Provider<MarketplaceRepository>((ref)=>MarketplaceRepository(ref.watch(apiClientProvider)));
 final walletProvider=FutureProvider.autoDispose<Map<String,dynamic>>((ref)=>ref.watch(marketplaceRepositoryProvider).wallet());
