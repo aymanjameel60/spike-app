@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,18 +11,18 @@ import 'core/api_config.dart';
 import 'core/settings/app_settings.dart';
 import 'core/theme.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await _bootstrapMediaContract();
   runApp(const ProviderScope(child: SpikeApp()));
+  unawaited(_bootstrapMediaContract());
 }
 
 Future<void> _bootstrapMediaContract() async {
   try {
     final dio = Dio(
       BaseOptions(
-        connectTimeout: ApiConfig.connectTimeout,
-        receiveTimeout: ApiConfig.receiveTimeout,
+        connectTimeout: const Duration(seconds: 4),
+        receiveTimeout: const Duration(seconds: 4),
         responseType: ResponseType.json,
         headers: const {'accept': 'application/json'},
       ),
@@ -39,8 +41,8 @@ Future<void> _bootstrapMediaContract() async {
       debugPrint('[Spike media] Invalid media contract; using backend resolver fallback.');
     }
   } catch (error) {
-    // `/media/file/<object-key>` is an official backend fallback, so startup
-    // remains usable if the config request is temporarily unavailable.
+    // Media bootstrap is intentionally outside the app startup critical path.
+    // `/media/file/<object-key>` remains the backend-owned fallback.
     debugPrint('[Spike media] Media bootstrap failed; using resolver fallback: $error');
   }
 }
