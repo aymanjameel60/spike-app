@@ -55,6 +55,15 @@ class HomeRepository {
     return ApiConfig.resolveMedia(value);
   }
 
+  Future<List<BannerItem>> popupBanners() async {
+    final data = await _api.get('/banners', query: {'placement': 'popup'});
+    return (data['banners'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => BannerItem.fromJson(Map<String, dynamic>.from(e)))
+        .where((e) => e.imageUrl.isNotEmpty)
+        .toList();
+  }
+
   Future<HomeData> load() async {
     final results = await Future.wait<Map<String, dynamic>>([
       _cachedGet('categories', '/categories'),
