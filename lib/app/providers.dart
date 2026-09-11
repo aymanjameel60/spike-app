@@ -9,6 +9,7 @@ import '../features/checkout/data/commerce_repository.dart';
 import '../features/engagement/data/engagement_repository.dart';
 import '../features/engagement/data/share_win_repository.dart';
 import '../features/home/data/home_repository.dart';
+import '../features/profile/data/marketplace_repository.dart';
 import '../models/category.dart';
 import '../models/product.dart';
 import '../models/store.dart';
@@ -33,6 +34,8 @@ final engagementRepositoryProvider=Provider<EngagementRepository>((ref)=>Engagem
 final shareWinRepositoryProvider=Provider<ShareWinRepository>((ref)=>ShareWinRepository(ref.watch(apiClientProvider)));
 final shareWinPublicProvider=FutureProvider.autoDispose<Map<String,dynamic>>((ref)=>ref.watch(shareWinRepositoryProvider).publicConfig());
 final shareWinMeProvider=FutureProvider.autoDispose<Map<String,dynamic>>((ref)=>ref.watch(shareWinRepositoryProvider).me());
+final marketplaceRepositoryProvider=Provider<MarketplaceRepository>((ref)=>MarketplaceRepository(ref.watch(apiClientProvider)));
+final walletProvider=FutureProvider.autoDispose<Map<String,dynamic>>((ref)=>ref.watch(marketplaceRepositoryProvider).wallet());
 final notificationsDataProvider=FutureProvider.autoDispose<Map<String,dynamic>>((ref)async{try{return await ref.watch(engagementRepositoryProvider).notifications();}catch(_){return const{'notifications':<dynamic>[]};}});
 final unreadNotificationsProvider=Provider<int>((ref){final data=ref.watch(notificationsDataProvider).valueOrNull;final raw=data?['notifications'];final items=(raw is List?raw:const<dynamic>[]).whereType<Map>();return items.where((n)=>n['read_at']==null).length;});
 final wishlistIdsProvider=FutureProvider.autoDispose<Set<String>>((ref)async=>(await ref.watch(engagementRepositoryProvider).wishlistIds()).toSet());
@@ -43,14 +46,7 @@ final commerceRepositoryProvider=Provider<CommerceRepository>((ref)=>CommerceRep
 final hasSessionProvider=FutureProvider<bool>((ref)async=>(await ref.watch(tokenStorageProvider).readToken())?.isNotEmpty==true);
 final citiesProvider=FutureProvider<List<CityModel>>((ref)=>ref.watch(commerceRepositoryProvider).cities());
 final addressesProvider=FutureProvider<List<AddressModel>>((ref)=>ref.watch(commerceRepositoryProvider).addresses());
-final activeAddressProvider=Provider<AsyncValue<AddressModel?>>((ref){
-  final addresses=ref.watch(addressesProvider);
-  return addresses.whenData((list){
-    if(list.isEmpty)return null;
-    for(final address in list){if(address.isActive)return address;}
-    return list.first;
-  });
-});
+final activeAddressProvider=Provider<AsyncValue<AddressModel?>>((ref){final addresses=ref.watch(addressesProvider);return addresses.whenData((list){if(list.isEmpty)return null;for(final address in list){if(address.isActive)return address;}return list.first;});});
 final paymentMethodsProvider=FutureProvider<List<PaymentMethodModel>>((ref)=>ref.watch(commerceRepositoryProvider).paymentMethods());
 final currenciesProvider=FutureProvider<List<CurrencyModel>>((ref)=>ref.watch(commerceRepositoryProvider).currencies());
 final ordersProvider=FutureProvider.autoDispose<List<OrderModel>>((ref)=>ref.watch(commerceRepositoryProvider).orders());
