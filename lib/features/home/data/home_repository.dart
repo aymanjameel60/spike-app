@@ -73,6 +73,20 @@ class HomeRepository {
     }
   }
 
+  Future<Map<String, dynamic>> _homeProducts() async {
+    try {
+      final data = await _api.get('/products-paged', query: {
+        'page': 1,
+        'page_size': 24,
+      });
+      return {
+        'products': data['items'] ?? data['products'] ?? const [],
+      };
+    } catch (_) {
+      return _get('products', '/products', persistDisk: false);
+    }
+  }
+
   Future<String?> brandingLogo() async {
     final data = await _get('branding', '/branding');
     final value = '${data['app_logo_url'] ?? data['logo_url'] ?? ''}'.trim();
@@ -92,7 +106,7 @@ class HomeRepository {
   Future<HomeData> load() async {
     final results = await Future.wait<Map<String, dynamic>>([
       _get('categories', '/categories'),
-      _get('products', '/products', persistDisk: false),
+      _homeProducts(),
       _get('stores', '/stores'),
       _get('sections', '/home-sections'),
       _get('banners', '/banners', query: {'placement': 'home'}),
