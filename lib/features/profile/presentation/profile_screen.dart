@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +6,7 @@ import '../../../app/providers.dart';
 import '../../../core/api_config.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
+import '../../../core/widgets/spike_network_image.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -31,8 +31,6 @@ class ProfileScreen extends ConsumerWidget {
           final phone = '${current['phone'] ?? ''}';
           final rawEmail = '${current['email'] ?? ''}';
           final email = rawEmail.endsWith('@customer.spike.local') ? '' : rawEmail;
-          final shareWinEnabled = shareWin != null && shareWin['enabled'] == true;
-          final shareWinHeadline = '${shareWin?['headline'] ?? 'شارك واربح'}';
 
           return ListView(
             padding: EdgeInsets.zero,
@@ -42,19 +40,19 @@ class ProfileScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
                 child: Row(
                   children: [
-                    SizedBox(
-                      width: 70,
-                      height: 70,
-                      child: ClipOval(
+                    ClipOval(
+                      child: SizedBox(
+                        width: 70,
+                        height: 70,
                         child: ColoredBox(
                           color: spikeRed,
                           child: avatar.isEmpty
                               ? const SizedBox.expand()
-                              : CachedNetworkImage(
-                                  imageUrl: avatar,
-                                  fit: BoxFit.cover,
+                              : SpikeNetworkImage(
+                                  url: avatar,
                                   width: 70,
                                   height: 70,
+                                  fit: BoxFit.cover,
                                 ),
                         ),
                       ),
@@ -79,11 +77,11 @@ class ProfileScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                     _row(context, LucideIcons.store, 'المتاجر', () => context.push('/stores')),
                     const SizedBox(height: 16),
-                    if (shareWinEnabled) ...[
+                    if (shareWin?['enabled'] == true) ...[
                       _row(
                         context,
                         LucideIcons.gift,
-                        shareWinHeadline,
+                        '${shareWin?['headline'] ?? 'شارك واربح'}',
                         () => u == null
                             ? context.push('/login?next=${Uri.encodeComponent('/share-win')}')
                             : context.push('/share-win'),
@@ -110,22 +108,10 @@ class ProfileScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                     _row(context, LucideIcons.settings2, 'الإعدادات المتقدمة', () => context.push('/settings')),
                     const SizedBox(height: 16),
-                    _row(
-                      context,
-                      LucideIcons.store,
-                      'سجّل كتاجر',
-                      () => context.push('/vendor-registration'),
-                      featured: true,
-                    ),
+                    _row(context, LucideIcons.store, 'سجّل كتاجر', () => context.push('/vendor-registration'), featured: true),
                     const SizedBox(height: 16),
                     if (u != null) ...[
-                      _row(
-                        context,
-                        LucideIcons.userX,
-                        'حذف الحساب',
-                        () => context.push('/delete-account'),
-                        danger: true,
-                      ),
+                      _row(context, LucideIcons.userX, 'حذف الحساب', () => context.push('/delete-account'), danger: true),
                       const SizedBox(height: 16),
                     ],
                     _row(
@@ -184,21 +170,14 @@ class ProfileScreen extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: danger ? spikeRed : null,
-                    ),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: danger ? spikeRed : null),
                   ),
                 ),
                 if (featured)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(color: spikeRed, borderRadius: BorderRadius.circular(20)),
-                    child: const Text(
-                      'جديد',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
-                    ),
+                    child: const Text('جديد', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
                   ),
               ],
             ),
