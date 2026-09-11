@@ -6,6 +6,7 @@ const spikePanel=Color(0xFFFFFFFF);
 const spikeProductCard=Color(0xFFEAEAEA);
 const spikeField=Color(0xFFE4E4E4);
 const spikeMuted=Color(0xFFA9A9A9);
+const spikeYellow=Color(0xFFF5B400);
 const spikeDarkBg=Color(0xFF111111);
 const spikeDarkPanel=Color(0xFF1D1D1D);
 
