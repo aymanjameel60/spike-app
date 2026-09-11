@@ -51,18 +51,36 @@ class PaymentMethodModel {
 
   String get label {
     switch (method) {
-      case 'transfer':
-        return 'حوالة مالية';
       case 'wallet':
-        return 'محفظة إلكترونية';
+        return 'محفظة مالية';
       case 'spike_wallet':
         return 'محفظة Spike';
       case 'cod':
         return 'الدفع عند الاستلام';
+      case 'transfer':
+        return 'حوالة مالية';
       default:
         return method;
     }
   }
+}
+
+class ElectronicWalletModel {
+  const ElectronicWalletModel({
+    required this.id,
+    required this.name,
+    required this.logoUrl,
+    required this.instructions,
+  });
+
+  final String id, name, logoUrl, instructions;
+
+  factory ElectronicWalletModel.fromJson(Map<String, dynamic> j) => ElectronicWalletModel(
+        id: '${j['id'] ?? ''}',
+        name: '${j['name'] ?? ''}',
+        logoUrl: ApiConfig.resolveMedia('${j['logo_url'] ?? ''}'),
+        instructions: '${j['instructions'] ?? ''}',
+      );
 }
 
 class PaymentAccountModel {
@@ -239,6 +257,14 @@ class CommerceRepository {
     return (d['methods'] as List? ?? const [])
         .whereType<Map>()
         .map((e) => PaymentMethodModel.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<List<ElectronicWalletModel>> electronicWallets() async {
+    final d = await _api.get('/electronic-wallets');
+    return (d['wallets'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => ElectronicWalletModel.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
 
