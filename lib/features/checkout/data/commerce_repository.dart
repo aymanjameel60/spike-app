@@ -49,7 +49,20 @@ class PaymentMethodModel {
         instructions: '${j['instructions'] ?? ''}',
       );
 
-  String get label => method == 'cod' ? 'الدفع عند الاستلام' : 'حوالة مالية';
+  String get label {
+    switch (method) {
+      case 'transfer':
+        return 'حوالة مالية';
+      case 'wallet':
+        return 'محفظة إلكترونية';
+      case 'spike_wallet':
+        return 'محفظة Spike';
+      case 'cod':
+        return 'الدفع عند الاستلام';
+      default:
+        return method;
+    }
+  }
 }
 
 class PaymentAccountModel {
