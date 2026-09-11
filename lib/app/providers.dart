@@ -7,6 +7,7 @@ import '../features/cart/data/cart_repository.dart';
 import '../features/catalog/data/catalog_repository.dart';
 import '../features/checkout/data/commerce_repository.dart';
 import '../features/engagement/data/engagement_repository.dart';
+import '../features/engagement/data/share_win_repository.dart';
 import '../features/home/data/home_repository.dart';
 import '../models/category.dart';
 import '../models/product.dart';
@@ -29,6 +30,9 @@ final allProductsProvider=FutureProvider<List<ProductModel>>((ref)=>ref.watch(ca
 final cartRepositoryProvider=Provider<CartRepository>((ref)=>CartRepository(ref.watch(apiClientProvider),ref.watch(tokenStorageProvider)));
 final cartCountProvider=FutureProvider.autoDispose<int>((ref)async{try{final cart=await ref.watch(cartRepositoryProvider).load();return cart.items.fold<int>(0,(sum,item)=>sum+item.quantity);}catch(_){return 0;}});
 final engagementRepositoryProvider=Provider<EngagementRepository>((ref)=>EngagementRepository(ref.watch(apiClientProvider), ref.watch(tokenStorageProvider)));
+final shareWinRepositoryProvider=Provider<ShareWinRepository>((ref)=>ShareWinRepository(ref.watch(apiClientProvider)));
+final shareWinPublicProvider=FutureProvider.autoDispose<Map<String,dynamic>>((ref)=>ref.watch(shareWinRepositoryProvider).publicConfig());
+final shareWinMeProvider=FutureProvider.autoDispose<Map<String,dynamic>>((ref)=>ref.watch(shareWinRepositoryProvider).me());
 final notificationsDataProvider=FutureProvider.autoDispose<Map<String,dynamic>>((ref)async{try{return await ref.watch(engagementRepositoryProvider).notifications();}catch(_){return const{'notifications':<dynamic>[]};}});
 final unreadNotificationsProvider=Provider<int>((ref){final data=ref.watch(notificationsDataProvider).valueOrNull;final raw=data?['notifications'];final items=(raw is List?raw:const<dynamic>[]).whereType<Map>();return items.where((n)=>n['read_at']==null).length;});
 final wishlistIdsProvider=FutureProvider.autoDispose<Set<String>>((ref)async=>(await ref.watch(engagementRepositoryProvider).wishlistIds()).toSet());
