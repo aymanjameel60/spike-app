@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../app/providers.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
+import '../../../core/widgets/spike_network_image.dart';
 
 class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
@@ -23,7 +23,7 @@ class CategoriesScreen extends ConsumerWidget {
             child: SizedBox(
               height: 60,
               child: Row(children: [
-                IconButton(onPressed: () => context.pop(), icon: const Icon(LucideIcons.arrowRight, size: 22)),
+                IconButton(onPressed: () => context.canPop() ? context.pop() : context.go('/'), icon: const Icon(LucideIcons.arrowRight, size: 22)),
                 const Spacer(),
                 const Text('تسوق حسب الفئة', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
                 const Spacer(),
@@ -34,7 +34,7 @@ class CategoriesScreen extends ConsumerWidget {
           Expanded(
             child: state.when(
               loading: () => const SpikeLoading(),
-              error: (e, _) => SpikeErrorState(onRetry: () => ref.invalidate(homeDataProvider)),
+              error: (e, _) => SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(homeDataProvider)),
               data: (data) => data.categories.isEmpty
                   ? const SpikeEmptyState(message: 'لا توجد أقسام منشورة بعد')
                   : RefreshIndicator(
@@ -48,8 +48,8 @@ class CategoriesScreen extends ConsumerWidget {
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 4,
                           crossAxisSpacing: 11,
-                          mainAxisSpacing: 13,
-                          childAspectRatio: .75,
+                          mainAxisSpacing: 20,
+                          mainAxisExtent: 124,
                         ),
                         itemBuilder: (context, i) {
                           final c = data.categories[i];
@@ -64,10 +64,16 @@ class CategoriesScreen extends ConsumerWidget {
                                 decoration: BoxDecoration(color: dark ? spikeDarkPanel : spikePanel, borderRadius: BorderRadius.circular(21)),
                                 child: c.imageUrl == null
                                     ? Icon(LucideIcons.image, color: mutedIcon)
-                                    : CachedNetworkImage(imageUrl: c.imageUrl!, fit: BoxFit.cover, errorWidget: (_, __, ___) => Icon(LucideIcons.image, color: mutedIcon)),
+                                    : SpikeNetworkImage(url: c.imageUrl, fit: BoxFit.cover, width: 81, height: 81),
                               ),
-                              const SizedBox(height: 7),
-                              Text(c.name, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 1.2)),
+                              const SizedBox(height: 9),
+                              Text(
+                                c.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 1.32),
+                              ),
                             ]),
                           );
                         },
