@@ -21,7 +21,7 @@ class ProductsScreen extends ConsumerStatefulWidget {
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   String _sort = 'relevance';
-  String _category = 'الكل';
+  String _specialFilter = 'all';
   final Set<String> _favoriteBusy = {};
 
   double _discount(ProductModel p) {
@@ -29,39 +29,96 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     return original > p.price && original > 0 ? (original - p.price) / original : 0;
   }
 
-  void _showSort() {
+  String _productsLocation({String? categoryId, required String title}) {
+    final params = <String, String>{'title': title};
+    if (categoryId != null && categoryId.isNotEmpty) params['category'] = categoryId;
+    if ((widget.collectionId ?? '').isNotEmpty) params['collection'] = widget.collectionId!;
+    return Uri(path: '/products', queryParameters: params).toString();
+  }
+
+  void _showFilters() {
+    final categories = ref.read(categoriesProvider).valueOrNull ?? const [];
+    var localSort = _sort;
+    var localSpecial = _specialFilter;
+    String? localCategoryId = widget.categoryId;
+
     showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(17, 20, 17, 25),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
-              const Expanded(child: Text('الترتيب حسب', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
-              IconButton(onPressed: () => Navigator.pop(sheetContext), icon: const Icon(LucideIcons.x, size: 20)),
-            ]),
-            const SizedBox(height: 10),
-            for (final option in const [
-              ('relevance', 'الأكثر صلة'),
-              ('price-low', 'السعر: من الأقل للأعلى'),
-              ('price-high', 'السعر: من الأعلى للأقل'),
-              ('rating', 'الأعلى تقييماً'),
-              ('discount', 'الأعلى خصماً'),
-            ])
-              InkWell(
-                onTap: () {
-                  setState(() => _sort = option.$1);
-                  Navigator.pop(sheetContext);
-                },
-                child: SizedBox(
-                  height: 48,
-                  child: Row(children: [
-                    Expanded(child: Text(option.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                    Icon(_sort == option.$1 ? Icons.radio_button_checked : Icons.radio_button_off, size: 19),
-                  ]),
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setLocal) => SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(18, 22, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 26),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(color: Theme.of(sheetContext).dividerColor, borderRadius: BorderRadius.circular(5)),
                 ),
               ),
-          ]),
+              const SizedBox(height: 16),
+              Row(children: [
+                const Expanded(child: Text('فلترة وترتيب المنتجات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+                IconButton(onPressed: () => Navigator.pop(sheetContext), icon: const Icon(LucideIcons.x, size: 20)),
+                TextButton(
+                  onPressed: () => setLocal(() {
+                    localSort = 'relevance';
+                    localSpecial = 'all';
+                    localCategoryId = null;
+                  }),
+                  child: const Text('مسح الكل', style: TextStyle(fontSize: 10, color: spikeRed)),
+                ),
+              ]),
+              const SizedBox(height: 14),
+              _FilterGroup(
+                title: 'الترتيب',
+                children: [
+                  _Chip('الأكثر صلة', localSort == 'relevance', () => setLocal(() => localSort = 'relevance')),
+                  _Chip('السعر: الأقل أولاً', localSort == 'price-low', () => setLocal(() => localSort = 'price-low')),
+                  _Chip('السعر: الأعلى أولاً', localSort == 'price-high', () => setLocal(() => localSort = 'price-high')),
+                  _Chip('الأعلى تقييمًا', localSort == 'rating', () => setLocal(() => localSort = 'rating')),
+                  _Chip('الأعلى خصمًا', localSort == 'discount', () => setLocal(() => localSort = 'discount')),
+                ],
+              ),
+              if (categories.isNotEmpty)
+                _FilterGroup(
+                  title: 'الفئة',
+                  children: [
+                    _Chip('الكل', localCategoryId == null, () => setLocal(() => localCategoryId = null)),
+                    for (final category in categories)
+                      _Chip(category.name, localCategoryId == category.id, () => setLocal(() => localCategoryId = category.id)),
+                  ],
+                ),
+              _FilterGroup(
+                title: 'نوع المنتجات',
+                children: [
+                  _Chip('كل المنتجات', localSpecial == 'all', () => setLocal(() => localSpecial = 'all')),
+                  _Chip('العروض فقط', localSpecial == 'offers', () => setLocal(() => localSpecial = 'offers')),
+                ],
+              ),
+              const SizedBox(height: 5),
+              SizedBox(
+                height: 39,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: spikeRed, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
+                  onPressed: () {
+                    final selectedCategory = categories.where((c) => c.id == localCategoryId).firstOrNull;
+                    setState(() {
+                      _sort = localSort;
+                      _specialFilter = localSpecial;
+                    });
+                    Navigator.pop(sheetContext);
+                    if (localCategoryId != widget.categoryId) {
+                      final title = selectedCategory?.name ?? (widget.collectionId == null ? 'المنتجات' : widget.title);
+                      context.go(_productsLocation(categoryId: localCategoryId, title: title));
+                    }
+                  },
+                  child: const Text('عرض النتائج', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ]),
+          ),
         ),
       ),
     );
@@ -103,9 +160,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productsProvider((widget.categoryId, widget.collectionId)));
-    final categories = ref.watch(categoriesProvider).valueOrNull ?? const [];
     final favorites = ref.watch(wishlistIdsProvider).valueOrNull ?? <String>{};
-    final chips = <String>['الكل', ...categories.map((e) => e.name), 'عروض'];
     final dark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -142,46 +197,19 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
                   borderRadius: BorderRadius.circular(20),
                   child: InkWell(
-                    onTap: _showSort,
+                    onTap: _showFilters,
                     borderRadius: BorderRadius.circular(20),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(LucideIcons.slidersHorizontal, size: 16), SizedBox(width: 6), Text('ترتيب حسب', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700))]),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(LucideIcons.slidersHorizontal, size: 16),
+                        SizedBox(width: 6),
+                        Text('ترتيب حسب', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                      ]),
                     ),
                   ),
                 ),
               ]),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(17, 8, 17, 14),
-            color: Theme.of(context).scaffoldBackgroundColor,
-            child: SizedBox(
-              height: 40,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                reverse: true,
-                itemCount: chips.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, i) {
-                  final item = chips[i];
-                  final active = _category == item;
-                  return InkWell(
-                    onTap: () => setState(() => _category = item),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: active ? spikeRed : (dark ? const Color(0xFF24252A) : const Color(0xFFE8E8E8)),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: active ? spikeRed : Theme.of(context).dividerColor),
-                      ),
-                      child: Text(item, style: TextStyle(fontSize: 12, color: active ? Theme.of(context).colorScheme.surface : null)),
-                    ),
-                  );
-                },
-              ),
             ),
           ),
           Expanded(
@@ -189,11 +217,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               loading: () => const SpikeLoading(),
               error: (e, _) => SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(productsProvider((widget.categoryId, widget.collectionId)))),
               data: (products) {
-                final list = products.where((p) {
-                  if (_category == 'الكل') return true;
-                  if (_category == 'عروض') return _discount(p) > 0;
-                  return p.categoryName == _category;
-                }).toList();
+                final list = products.where((p) => _specialFilter != 'offers' || _discount(p) > 0).toList();
                 if (_sort == 'price-low') list.sort((a, b) => a.price.compareTo(b.price));
                 if (_sort == 'price-high') list.sort((a, b) => b.price.compareTo(a.price));
                 if (_sort == 'rating') list.sort((a, b) => b.rating.compareTo(a.rating));
@@ -228,4 +252,49 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
     );
   }
+}
+
+class _FilterGroup extends StatelessWidget {
+  const _FilterGroup({required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark ? spikeDarkPanel : spikePanel,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 9),
+            Wrap(spacing: 8, runSpacing: 8, children: children),
+          ]),
+        ),
+      );
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip(this.label, this.selected, this.onTap);
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(17),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? spikeRed : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF24252A) : const Color(0xFFF1F1F1)),
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(color: selected ? spikeRed : Theme.of(context).dividerColor),
+          ),
+          child: Text(label, style: TextStyle(fontSize: 10, color: selected ? Theme.of(context).colorScheme.surface : null)),
+        ),
+      );
 }
