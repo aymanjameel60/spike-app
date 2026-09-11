@@ -31,6 +31,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool loading = true;
   bool busy = false;
 
+  static const _supportedPaymentMethods = <String>{
+    'transfer',
+    'wallet',
+    'spike_wallet',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -61,7 +67,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ]);
       cart = result[0] as CartSnapshot;
       addresses = result[1] as List<AddressModel>;
-      methods = result[2] as List<PaymentMethodModel>;
+      methods = (result[2] as List<PaymentMethodModel>)
+          .where((method) => _supportedPaymentMethods.contains(method.method))
+          .toList()
+        ..sort((a, b) {
+          const order = {'transfer': 0, 'wallet': 1, 'spike_wallet': 2};
+          return (order[a.method] ?? 99).compareTo(order[b.method] ?? 99);
+        });
       electronicWallets = result[3] as List<ElectronicWalletModel>;
       currencies = result[4] as List<CurrencyModel>;
       paymentAccounts = result[5] as List<PaymentAccountModel>;
@@ -102,10 +114,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Future<void> _submit() async {
     if (busy || cart == null || address == null || payment == null || currency == null || quote == null) return;
-    if (payment!.method == 'wallet') {
-      showSpikeToast(context, selectedElectronicWallet == null
-          ? 'اختر المحفظة المالية أولاً'
-          : 'سيتم تفعيل إتمام الدفع بعد ربط تحقق المحفظة المالية بشكل آمن');
+    if (!_supportedPaymentMethods.contains(payment!.method)) {
+      showSpikeToast(context, 'طريقة الدفع غير متاحة');
+      return;
+    }
+    if (payment!.method == 'wallet' && selectedElectronicWallet == null) {
+      showSpikeToast(context, 'اختر المحفظة الإلكترونية أولاً');
       return;
     }
     setState(() => busy = true);
@@ -118,10 +132,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           );
       ref.invalidate(cartCountProvider);
       ref.invalidate(ordersProvider);
-      if (mounted) {
-        showSpikeToast(context, 'تم إنشاء الطلب بنجاح');
-        context.go('/order/${order.id}');
+      if (!mounted) return;
+
+      if (payment!.method == 'transfer') {
+        showSpikeToast(
+          context,
+          'تم إنشاء الطلب. ارفع سند الحوالة من الطلبات حتى يتم تأكيد الطلب.',
+        );
+        context.go('/orders');
+        return;
       }
+
+      showSpikeToast(context, 'تم إنشاء الطلب بنجاح');
+      context.go('/order/${order.id}');
     } catch (e) {
       if (mounted) showSpikeToast(context, e.toString());
     } finally {
@@ -230,6 +253,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     padding: EdgeInsets.only(top: 10),
                     child: Text('أضف أو اختر عنوان التوصيل أولاً لتفعيل طرق الدفع', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: spikeRed)),
                   ),
+                if (payment?.method == 'transfer' && hasAddress) ...[
+                  const SizedBox(height: 12),
+                  _PaymentNotice(
+                    icon: LucideIcons.receipt,
+                    title: 'حوالة مالية',
+                    text: payment?.instructions.trim().isNotEmpty == true
+                        ? '${payment!.instructions}\nبعد إنشاء الطلب سيتم نقلك إلى الطلبات. ارفع سند الحوالة حتى يتم تأكيد الطلب.'
+                        : 'بعد إنشاء الطلب سيتم نقلك إلى الطلبات. ارفع سند الحوالة حتى يتم تأكيد الطلب.',
+                    cardColor: cardColor,
+                  ),
+                ],
                 if (payment?.method == 'wallet' && hasAddress) ...[
                   const SizedBox(height: 12),
                   _ElectronicWalletChoices(
@@ -237,15 +271,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     selected: selectedElectronicWallet,
                     cardColor: cardColor,
                     onSelected: (wallet) => setState(() => selectedElectronicWallet = wallet),
-                  ),
-                ],
-                if (payment?.method == 'cod' && hasAddress) ...[
-                  const SizedBox(height: 12),
-                  _PaymentNotice(
-                    icon: LucideIcons.packageCheck,
-                    title: 'الدفع عند الاستلام',
-                    text: payment?.instructions.trim().isNotEmpty == true ? payment!.instructions : 'ادفع قيمة الطلب عند استلامه.',
-                    cardColor: cardColor,
                   ),
                 ],
                 if (payment?.method == 'spike_wallet' && hasAddress) ...[
@@ -348,6 +373,20 @@ class _PaymentChoice extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final Color cardColor;
+
+  String get _label {
+    switch (method.method) {
+      case 'transfer':
+        return 'حوالة مالية';
+      case 'wallet':
+        return 'محفظة إلكترونية';
+      case 'spike_wallet':
+        return 'محفظة سبايك';
+      default:
+        return method.label;
+    }
+  }
+
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,
@@ -359,7 +398,7 @@ class _PaymentChoice extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, size: 18),
             const SizedBox(width: 7),
-            Text(method.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+            Text(_label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
           ]),
         ),
       );
@@ -378,10 +417,10 @@ class _ElectronicWalletChoices extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(18), border: Border.all(color: Theme.of(context).dividerColor)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('اختر المحفظة المالية', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          const Text('اختر المحفظة الإلكترونية', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
           const SizedBox(height: 9),
           if (wallets.isEmpty)
-            const Text('لا توجد محافظ مالية مفعلة من الإدارة حالياً.', style: TextStyle(fontSize: 10, color: spikeMuted))
+            const Text('لا توجد محافظ إلكترونية مفعلة من الإدارة حالياً.', style: TextStyle(fontSize: 10, color: spikeMuted))
           else
             ...wallets.map((wallet) {
               final active = selected?.id == wallet.id;
@@ -468,7 +507,7 @@ class _SpikeWalletPanel extends StatelessWidget {
           const SizedBox(width: 11),
           const Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('محفظة Spike', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              Text('محفظة سبايك', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               SizedBox(height: 3),
               Text('سيتم خصم قيمة الطلب مباشرة من رصيد محفظتك.', style: TextStyle(fontSize: 9, color: spikeMuted)),
             ]),
