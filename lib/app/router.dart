@@ -55,7 +55,18 @@ final appRouter=GoRouter(routes:[ShellRoute(builder:(context,state,child)=>MainS
   GoRoute(path:'/categories',builder:(_,__)=>const CategoriesScreen()),
   GoRoute(path:'/stores',builder:(_,__)=>const StoresScreen()),
   GoRoute(path:'/store/:id',builder:(_,state)=>StoreDetailsScreen(id:state.pathParameters['id']!)),
-  GoRoute(path:'/products',builder:(_,state)=>ProductsScreen(key:ValueKey(state.uri.toString()),categoryId:state.uri.queryParameters['category'],collectionId:state.uri.queryParameters['collection'],title:state.uri.queryParameters['title']??'المنتجات')),
+  GoRoute(
+    path:'/products',
+    pageBuilder:(_,state)=>NoTransitionPage<void>(
+      key:ValueKey(state.uri.toString()),
+      child:ProductsScreen(
+        key:ValueKey('products:${state.uri}'),
+        categoryId:state.uri.queryParameters['category'],
+        collectionId:state.uri.queryParameters['collection'],
+        title:state.uri.queryParameters['title']??'المنتجات',
+      ),
+    ),
+  ),
   GoRoute(path:'/product/:id',builder:(_,state)=>ProductDetailsScreen(id:state.pathParameters['id']!)),
   GoRoute(path:'/search',builder:(_,state)=>SearchScreen(initialQuery:state.uri.queryParameters['q']??''))
 ]),
