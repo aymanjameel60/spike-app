@@ -1,7 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../core/theme.dart';
+import '../core/widgets/spike_network_image.dart';
 import '../models/product.dart';
 
 class SpikeProductCard extends StatelessWidget {
@@ -37,7 +37,6 @@ class SpikeProductCard extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = dark ? spikeDarkPanel : spikeProductCard;
     final imageColor = dark ? Theme.of(context).colorScheme.surface : Colors.white;
-    final textColor = Theme.of(context).colorScheme.onSurface;
 
     return SizedBox(
       width: 154,
@@ -60,20 +59,14 @@ class SpikeProductCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(SpikeRadius.card),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: product.imageUrl == null
-                        ? Center(child: Icon(LucideIcons.image, size: 38, color: textColor.withValues(alpha:.18)))
-                        : CachedNetworkImage(
-                            imageUrl: product.imageUrl!,
-                            fit: BoxFit.contain,
-                            memCacheWidth: 320,
-                            memCacheHeight: 280,
-                            maxWidthDiskCache: 640,
-                            maxHeightDiskCache: 560,
-                            fadeInDuration: Duration.zero,
-                            fadeOutDuration: Duration.zero,
-                            placeholder: (_, __) => Container(color: imageColor),
-                            errorWidget: (_, __, ___) => Icon(LucideIcons.image, color: textColor.withValues(alpha:.18)),
-                          ),
+                    child: SpikeNetworkImage(
+                      url: product.imageUrl,
+                      fit: BoxFit.contain,
+                      width: double.infinity,
+                      height: 134,
+                      memCacheWidth: 320,
+                      memCacheHeight: 280,
+                    ),
                   ),
                   Positioned(
                     top: 9,
