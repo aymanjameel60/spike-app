@@ -4,8 +4,8 @@ import '../../../core/storage/token_storage.dart';
 class AuthRepository{
   AuthRepository(this._api,this._tokens);final ApiClient _api;final TokenStorage _tokens;
 
-  Future<Map<String,dynamic>> login({required String email,required String password})async{
-    final d=await _api.post('/auth/login',data:{'email':email.trim(),'password':password});
+  Future<Map<String,dynamic>> loginPhone({required String phone,required String password})async{
+    final d=await _api.post('/auth/login-phone',data:{'phone':phone.replaceAll(RegExp(r'\D'),'').trim(),'password':password});
     final token='${d['token']??''}';
     if(token.isEmpty)throw const ApiException('تعذر حفظ جلسة تسجيل الدخول');
     final user=Map<String,dynamic>.from(d['user'] as Map? ?? const {});
@@ -14,13 +14,35 @@ class AuthRepository{
     return user;
   }
 
-  Future<Map<String,dynamic>> register({required String name,required String email,required String password,String? phone})async{
-    final d=await _api.post('/auth/register',data:{'name':name.trim(),'email':email.trim(),'password':password,if(phone!=null&&phone.trim().isNotEmpty)'phone':phone.trim()});
+  Future<Map<String,dynamic>> registerPhone({
+    required String name,
+    required String phone,
+    required String password,
+    required String gender,
+    required String country,
+    required String governorate,
+    String referralCode='',
+  })async{
+    final normalized=phone.replaceAll(RegExp(r'\D'),'').trim();
+    final d=await _api.post('/auth/register-phone',data:{
+      'name':name.trim(),
+      'phone':normalized,
+      'password':password,
+      'gender':gender,
+      'country':country,
+      'governorate':governorate,
+    });
     final token='${d['token']??''}';
     if(token.isEmpty)throw const ApiException('تعذر حفظ جلسة الحساب');
     final user=Map<String,dynamic>.from(d['user'] as Map? ?? const {});
     await _tokens.writeToken(token);
     if(user.isNotEmpty)await _tokens.writeCachedUser(user);
+    final code=referralCode.trim().toUpperCase();
+    if(code.isNotEmpty){
+      try{await _api.post('/share-win/accept',auth:true,data:{'code':code});}on ApiException catch(e){
+        if(![400,404,409].contains(e.statusCode))rethrow;
+      }
+    }
     return user;
   }
 
@@ -46,9 +68,9 @@ class AuthRepository{
   }
 
   Future<Map<String,dynamic>> uploadAvatar(String filePath)async{
-    final uploaded=await _api.uploadFile('/uploads/avatar',filePath:filePath),url='${uploaded['url']??''}';
-    if(url.isEmpty)throw const ApiException('تعذر رفع الصورة');
-    final d=await _api.put('/customer-media/profile/avatar',auth:true,data:{'avatar_url':url});
+    final uploaded=await _api.uploadFile('/uploads/avatar',filePath:filePath),ref='${uploaded['key']??uploaded['path']??uploaded['url']??''}';
+    if(ref.isEmpty)throw const ApiException('تعذر رفع الصورة');
+    final d=await _api.put('/customer-media/profile/avatar',auth:true,data:{'avatar_url':ref});
     final user=Map<String,dynamic>.from(d['user'] as Map? ?? const {});
     if(user.isNotEmpty)await _tokens.writeCachedUser(user);
     return user;
