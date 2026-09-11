@@ -7,6 +7,22 @@ import '../../../models/category.dart';
 import '../../../models/product.dart';
 import '../../../models/store.dart';
 
+class ProductPage {
+  const ProductPage({
+    required this.items,
+    required this.page,
+    required this.pageSize,
+    required this.total,
+    required this.hasNext,
+  });
+
+  final List<ProductModel> items;
+  final int page;
+  final int pageSize;
+  final int total;
+  final bool hasNext;
+}
+
 class CatalogRepository {
   CatalogRepository(this._api);
 
@@ -52,6 +68,11 @@ class CatalogRepository {
     }
   }
 
+  List<ProductModel> _mapProducts(Object? raw) => (raw as List? ?? const [])
+      .whereType<Map>()
+      .map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e)))
+      .toList();
+
   Future<List<ProductModel>> products({
     String? categoryId,
     String? collectionId,
@@ -66,15 +87,102 @@ class CatalogRepository {
         if (collectionId != null && collectionId.isNotEmpty) 'collection_id': collectionId,
       },
     );
-    return (data['products'] as List? ?? const [])
-        .whereType<Map>()
-        .map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
+    return _mapProducts(data['products']);
+  }
+
+  Future<ProductPage> pagedProducts({
+    int page = 1,
+    int pageSize = 24,
+    String? categoryId,
+    String? collectionId,
+    String? storeId,
+    bool offersOnly = false,
+    Iterable<String>? ids,
+    String? search,
+  }) async {
+    final safePage = page < 1 ? 1 : page;
+    final safeSize = pageSize.clamp(10, 100);
+    final idList = ids
+            ?.map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .take(100)
+            .toList() ??
+        const <String>[];
+
+    try {
+      final data = await _api.get('/products-paged', query: {
+        'page': safePage,
+        'page_size': safeSize,
+        if ((categoryId ?? '').isNotEmpty) 'category_id': categoryId,
+        if ((collectionId ?? '').isNotEmpty) 'collection_id': collectionId,
+        if ((storeId ?? '').isNotEmpty) 'store_id': storeId,
+        if (offersOnly) 'offers_only': 'true',
+        if (idList.isNotEmpty) 'ids': idList.join(','),
+        if ((search ?? '').trim().isNotEmpty) 'search': search!.trim(),
+      });
+      final items = _mapProducts(data['items'] ?? data['products']);
+      final meta = data['meta'] is Map
+          ? Map<String, dynamic>.from(data['meta'] as Map)
+          : const <String, dynamic>{};
+      return ProductPage(
+        items: items,
+        page: int.tryParse('${meta['page'] ?? safePage}') ?? safePage,
+        pageSize: int.tryParse('${meta['page_size'] ?? safeSize}') ?? safeSize,
+        total: int.tryParse('${meta['total'] ?? items.length}') ?? items.length,
+        hasNext: meta['has_next'] == true,
+      );
+    } catch (_) {
+      final fallback = await products(
+        categoryId: categoryId,
+        collectionId: collectionId,
+      );
+      var filtered = fallback;
+      if ((storeId ?? '').isNotEmpty) {
+        filtered = filtered.where((p) => p.storeId == storeId).toList();
+      }
+      if (offersOnly) {
+        filtered = filtered.where((p) {
+          final old = p.originalPrice;
+          return old != null && old > p.price && p.price > 0;
+        }).toList();
+      }
+      if (idList.isNotEmpty) {
+        final wanted = idList.toSet();
+        filtered = filtered.where((p) => wanted.contains(p.id)).toList();
+      }
+      if ((search ?? '').trim().isNotEmpty) {
+        final q = search!.trim().toLowerCase();
+        filtered = filtered
+            .where((p) =>
+                p.name.toLowerCase().contains(q) ||
+                p.storeName.toLowerCase().contains(q) ||
+                (p.categoryName ?? '').toLowerCase().contains(q))
+            .toList();
+      }
+      final start = (safePage - 1) * safeSize;
+      if (start >= filtered.length) {
+        return ProductPage(
+          items: const [],
+          page: safePage,
+          pageSize: safeSize,
+          total: filtered.length,
+          hasNext: false,
+        );
+      }
+      final end = (start + safeSize).clamp(0, filtered.length);
+      return ProductPage(
+        items: filtered.sublist(start, end),
+        page: safePage,
+        pageSize: safeSize,
+        total: filtered.length,
+        hasNext: end < filtered.length,
+      );
+    }
   }
 
   Future<ProductModel?> product(String id) async {
-    final list = await products();
-    for (final product in list) {
+    final page = await pagedProducts(ids: [id], pageSize: 10);
+    for (final product in page.items) {
       if (product.id == id) return product;
     }
     return null;
