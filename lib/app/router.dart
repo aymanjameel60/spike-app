@@ -4,6 +4,7 @@ import '../features/auth/presentation/auth_screen.dart';
 import '../features/auth/presentation/password_reset_screen.dart';
 import '../features/cart/presentation/cart_screen.dart';
 import '../features/catalog/presentation/categories_screen.dart';
+import '../features/catalog/presentation/category_screen.dart';
 import '../features/catalog/presentation/product_details_screen.dart';
 import '../features/catalog/presentation/products_screen.dart';
 import '../features/checkout/data/commerce_repository.dart';
@@ -78,6 +79,13 @@ final appRouter = GoRouter(
           ),
         ),
         GoRoute(path: '/categories', pageBuilder: (_, state) => _page(state, const CategoriesScreen())),
+        GoRoute(
+          path: '/category/:id',
+          pageBuilder: (_, state) => _page(
+            state,
+            CategoryScreen(id: state.pathParameters['id']!),
+          ),
+        ),
         GoRoute(path: '/stores', pageBuilder: (_, state) => _page(state, const StoresScreen())),
         GoRoute(
           path: '/section/:id',
