@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
 import '../../../app/providers.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/theme.dart';
@@ -58,10 +59,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       final commerce = ref.read(commerceRepositoryProvider);
       final preferred = ref.read(appSettingsProvider).currency;
-
-      // Keep the Flutter checkout contract identical to the web checkout:
-      // cart + address + enabled payment methods + currency are required.
-      // Display-only data must never take down the checkout page.
       final result = await Future.wait([
         ref.read(cartRepositoryProvider).load(),
         commerce.addresses(),
@@ -72,7 +69,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       cart = result[0] as CartSnapshot;
       addresses = result[1] as List<AddressModel>;
       methods = (result[2] as List<PaymentMethodModel>)
-          .where((method) => _supportedPaymentMethods.contains(method.method))
+          .where((m) => _supportedPaymentMethods.contains(m.method))
           .toList()
         ..sort((a, b) {
           const order = {
@@ -107,7 +104,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             .updateMeta(currencyCode: currency!.code);
       }
 
-      // Optional checkout decorations. A failure here is not a checkout failure.
       try {
         paymentAccounts = await commerce.paymentAccounts();
       } catch (_) {
@@ -161,8 +157,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     setState(() => busy = true);
     try {
-      // Same active path as spikrfront: one server-owned checkout request.
-      // Do not create a second client-side payment-plan step here.
       await ref.read(commerceRepositoryProvider).createOrder(
             cart: cart!,
             addressId: address!.id,
@@ -170,10 +164,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             currencyCode: currency!.code,
           );
 
+      // Same result as the web flow: once the order is accepted by the server,
+      // the cart is consumed and the badge is refreshed from the backend.
+      await ref.read(cartRepositoryProvider).clear();
       ref.invalidate(cartCountProvider);
       ref.invalidate(ordersProvider);
-      if (!mounted) return;
 
+      if (!mounted) return;
       switch (method) {
         case 'cod':
           showSpikeToast(context, 'تم إنشاء الطلب. سيتم الدفع عند التسليم.');
@@ -181,20 +178,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         case 'transfer':
           showSpikeToast(
             context,
-            'تم إنشاء الطلب. حوّل المبلغ ثم ارفع سند الحوالة من تفاصيل الطلب.',
+            'تم إنشاء الطلب. ارفع سند الحوالة من تفاصيل الطلب.',
           );
           break;
         case 'wallet':
-          showSpikeToast(
-            context,
-            'تم إنشاء الطلب. أكمل الدفع من تفاصيل الطلب حسب الوسيلة المتاحة.',
-          );
+          showSpikeToast(context, 'تم إنشاء الطلب بنجاح.');
           break;
         case 'spike_wallet':
           showSpikeToast(context, 'تم إنشاء الطلب باستخدام محفظة سبايك.');
           break;
       }
-
       context.go('/orders');
     } catch (e) {
       if (mounted) showSpikeToast(context, e.toString());
@@ -255,7 +248,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             const _CheckoutHead(title: 'تأكيد الطلب والدفع'),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(17, 4, 17, 24),
+                padding: const EdgeInsets.fromLTRB(17, 4, 17, 16),
                 children: [
                   _AddressButton(
                     address: address,
@@ -381,7 +374,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       icon: LucideIcons.smartphone,
                       title: 'المحفظة الإلكترونية',
                       text:
-                          'سيتم إنشاء الطلب بنفس مسار الويب. تفاصيل التنفيذ المتاحة تظهر من الخادم ولا يتم افتراض نجاح الدفع داخل التطبيق.',
+                          'يتم إنشاء الطلب عبر نفس مسار الويب، ولا يعتبر الدفع ناجحًا إلا بتأكيد الخادم.',
                       cardColor: cardColor,
                     ),
                   ],
@@ -391,7 +384,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       icon: LucideIcons.walletCards,
                       title: 'محفظة سبايك',
                       text:
-                          'سيعالج الخادم رصيد محفظة سبايك عند إنشاء الطلب وفق إعدادات النظام.',
+                          'يعالج الخادم رصيد محفظة سبايك وفق إعدادات النظام.',
                       cardColor: cardColor,
                     ),
                   ],
@@ -401,7 +394,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       icon: LucideIcons.banknote,
                       title: 'الدفع عند التسليم',
                       text:
-                          'سيتم تحصيل قيمة الطلب عند استلامه. يمكنك متابعة حالة الطلب من صفحة طلباتي.',
+                          'سيتم تحصيل قيمة الطلب عند استلامه. تابع حالة الطلب من صفحة طلباتي.',
                       cardColor: cardColor,
                     ),
                   ],
@@ -481,37 +474,48 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    height: 48,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: spikeRed,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
+                ],
+              ),
+            ),
+            Container(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              padding: const EdgeInsets.fromLTRB(17, 13, 17, 8),
+              child: SafeArea(
+                top: false,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 43,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: spikeRed,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
                       ),
-                      onPressed: ready ? _submit : null,
-                      icon: busy
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(LucideIcons.creditCard, size: 18),
-                      label: Text(
-                        busy ? 'جاري إنشاء الطلب...' : 'تأكيد الطلب',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    ),
+                    onPressed: ready ? _submit : null,
+                    icon: busy
+                        ? const SizedBox.square(
+                            dimension: 17,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(LucideIcons.checkCircle2, size: 18),
+                    label: Text(
+                      busy
+                          ? 'جاري إنشاء الطلب...'
+                          : grand == null
+                              ? 'تأكيد الطلب'
+                              : 'تأكيد الطلب • ${_money(grand, cart!.currencyCode)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ],
@@ -536,7 +540,6 @@ class _AddressButton extends StatelessWidget {
     required this.onTap,
     required this.cardColor,
   });
-
   final AddressModel? address;
   final VoidCallback onTap;
   final Color cardColor;
@@ -585,7 +588,6 @@ class _AddressButton extends StatelessWidget {
 
 class _CheckoutBanner extends StatelessWidget {
   const _CheckoutBanner({required this.banner});
-
   final CheckoutBannerModel banner;
 
   @override
@@ -609,7 +611,6 @@ class _PaymentChoice extends StatelessWidget {
     required this.onTap,
     required this.cardColor,
   });
-
   final PaymentMethodModel method;
   final bool selected;
   final VoidCallback onTap;
@@ -668,10 +669,7 @@ class _PaymentChoice extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       _subtitle,
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: spikeMuted,
-                      ),
+                      style: const TextStyle(fontSize: 9, color: spikeMuted),
                     ),
                   ],
                 ),
@@ -691,7 +689,6 @@ class _TransferAccountsPanel extends StatelessWidget {
     required this.accounts,
     required this.cardColor,
   });
-
   final List<PaymentAccountModel> accounts;
   final Color cardColor;
 
@@ -737,24 +734,25 @@ class _TransferAccountsPanel extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'اسم الحساب: ${account.accountName}',
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                      Directionality(
-                        textDirection: TextDirection.ltr,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(
-                            account.accountNumber,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
+                      if (account.accountName.isNotEmpty)
+                        Text(
+                          'اسم الحساب: ${account.accountName}',
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      if (account.accountNumber.isNotEmpty)
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              account.accountNumber,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                       if (account.instructions.isNotEmpty)
                         Text(
                           account.instructions,
@@ -780,7 +778,6 @@ class _PaymentNotice extends StatelessWidget {
     required this.text,
     required this.cardColor,
   });
-
   final IconData icon;
   final String title, text;
   final Color cardColor;
@@ -833,7 +830,6 @@ class _ShippingLine extends StatelessWidget {
     required this.rate,
     required this.currency,
   });
-
   final Map<String, dynamic> q;
   final double rate;
   final String currency;
@@ -874,7 +870,6 @@ class _ShippingLine extends StatelessWidget {
 
 class _CheckoutHead extends StatelessWidget {
   const _CheckoutHead({required this.title});
-
   final String title;
 
   @override
@@ -920,7 +915,6 @@ class _CheckoutHead extends StatelessWidget {
 
 class _InvoiceLine extends StatelessWidget {
   const _InvoiceLine({required this.label, required this.value});
-
   final String label, value;
 
   @override
