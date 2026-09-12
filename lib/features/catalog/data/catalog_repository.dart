@@ -86,7 +86,7 @@ class CatalogRepository {
     var currentId = categoryId!.trim();
     final visited = <String>{};
 
-    for (var depth = 0; depth < 6; depth++) {
+    for (var depth = 0; depth < 12; depth++) {
       if (!visited.add(currentId)) break;
 
       CategoryModel? current;
@@ -109,6 +109,23 @@ class CatalogRepository {
     }
 
     return (currentId, null);
+  }
+
+  Future<Set<String>> categoryTreeIds(String rootId) async {
+    final all = await categories();
+    final result = <String>{rootId};
+    var changed = true;
+    while (changed) {
+      changed = false;
+      for (final category in all) {
+        if (category.parentId != null &&
+            result.contains(category.parentId) &&
+            result.add(category.id)) {
+          changed = true;
+        }
+      }
+    }
+    return result;
   }
 
   Future<List<ProductModel>> products({
@@ -140,6 +157,7 @@ class CatalogRepository {
     String? categoryId,
     String? collectionId,
     String? storeId,
+    bool includeDescendants = false,
     bool offersOnly = false,
     Iterable<String>? ids,
     String? search,
@@ -162,6 +180,8 @@ class CatalogRepository {
         'page_size': safeSize,
         if ((resolvedCategoryId ?? '').isNotEmpty)
           'category_id': resolvedCategoryId,
+        if ((resolvedCategoryId ?? '').isNotEmpty && includeDescendants)
+          'include_descendants': 'true',
         if ((resolvedCollectionId ?? '').isNotEmpty)
           'collection_id': resolvedCollectionId,
         if ((storeId ?? '').isNotEmpty) 'store_id': storeId,
@@ -181,10 +201,20 @@ class CatalogRepository {
         hasNext: meta['has_next'] == true,
       );
     } catch (_) {
-      final fallback = await products(
-        categoryId: categoryId,
-        collectionId: collectionId,
-      );
+      List<ProductModel> fallback;
+      if (includeDescendants && (resolvedCategoryId ?? '').isNotEmpty) {
+        final all = await products();
+        final allowed = await categoryTreeIds(resolvedCategoryId!);
+        fallback = all
+            .where((product) =>
+                product.categoryId != null && allowed.contains(product.categoryId))
+            .toList();
+      } else {
+        fallback = await products(
+          categoryId: categoryId,
+          collectionId: collectionId,
+        );
+      }
       var filtered = fallback;
       if ((storeId ?? '').isNotEmpty) {
         filtered = filtered.where((p) => p.storeId == storeId).toList();
