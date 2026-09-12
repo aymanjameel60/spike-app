@@ -283,7 +283,8 @@ class CatalogRepository {
         .whereType<Map>()
         .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
         .where((e) => e.enabled)
-        .toList();
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     _categoriesCache = result;
     return result;
   }
