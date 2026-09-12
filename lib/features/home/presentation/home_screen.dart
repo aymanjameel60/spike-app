@@ -13,6 +13,7 @@ import '../../../models/category.dart';
 import '../../../models/collection.dart';
 import '../../../models/product.dart';
 import '../../../models/store.dart';
+import '../../../widgets/dynamic_home_sections.dart';
 import '../../../widgets/product_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -95,41 +96,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   categories: data.categories.take(8).toList(),
                   onTap: (c) => context.push('/products?category=${Uri.encodeComponent(c.id)}&title=${Uri.encodeComponent(c.name)}'),
                 ),
-                const SizedBox(height: 32),
-                _SectionTitle(title: 'مختارة لك', showAll: data.products.isNotEmpty, onShowAll: () => context.push('/products')),
-                _productsStrip(products: data.products, emptyMessage: 'لا توجد منتجات منشورة بعد'),
-                if (data.bestSellers.isNotEmpty) ...[
+                if (data.sections.isNotEmpty)
+                  DynamicHomeSections(sections: data.sections)
+                else ...[
                   const SizedBox(height: 32),
-                  const _SectionTitle(title: 'الأكثر مبيعًا', showAll: false),
-                  _productsStrip(products: data.bestSellers, emptyMessage: 'لا توجد مبيعات مكتملة بعد'),
-                ],
-                if (offers.isNotEmpty) ...[
+                  _SectionTitle(title: 'مختارة لك', showAll: data.products.isNotEmpty, onShowAll: () => context.push('/products')),
+                  _productsStrip(products: data.products, emptyMessage: 'لا توجد منتجات منشورة بعد'),
+                  if (data.bestSellers.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    const _SectionTitle(title: 'الأكثر مبيعًا', showAll: false),
+                    _productsStrip(products: data.bestSellers, emptyMessage: 'لا توجد مبيعات مكتملة بعد'),
+                  ],
+                  if (offers.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    _SectionTitle(title: 'العروض والخصومات', showAll: true, onShowAll: () => context.push('/offers')),
+                    _productsStrip(products: offers, emptyMessage: 'لا توجد عروض حالياً'),
+                  ],
+                  if (data.collections.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    const _SectionTitle(title: 'المجموعات', showAll: false),
+                    _CollectionsStrip(
+                      collections: data.collections,
+                      onTap: (c) {
+                        final type = (c.destinationType ?? '').toLowerCase();
+                        final id = c.destinationId ?? '';
+                        if (id.isEmpty) return;
+                        if (type == 'product') {
+                          context.push('/product/$id');
+                        } else if (type == 'category') {
+                          context.push('/products?category=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(c.name)}');
+                        } else if (type == 'collection') {
+                          context.push('/products?collection=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(c.name)}');
+                        }
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 32),
-                  _SectionTitle(title: 'العروض والخصومات', showAll: true, onShowAll: () => context.push('/offers')),
-                  _productsStrip(products: offers, emptyMessage: 'لا توجد عروض حالياً'),
+                  _SectionTitle(title: 'المتاجر', showAll: data.stores.isNotEmpty, onShowAll: () => context.push('/stores')),
+                  _StoresStrip(stores: data.stores, onTap: (s) => context.push('/store/${s.id}')),
                 ],
-                if (data.collections.isNotEmpty) ...[
-                  const SizedBox(height: 32),
-                  const _SectionTitle(title: 'المجموعات', showAll: false),
-                  _CollectionsStrip(
-                    collections: data.collections,
-                    onTap: (c) {
-                      final type = (c.destinationType ?? '').toLowerCase();
-                      final id = c.destinationId ?? '';
-                      if (id.isEmpty) return;
-                      if (type == 'product') {
-                        context.push('/product/$id');
-                      } else if (type == 'category') {
-                        context.push('/products?category=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(c.name)}');
-                      } else if (type == 'collection') {
-                        context.push('/products?collection=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(c.name)}');
-                      }
-                    },
-                  ),
-                ],
-                const SizedBox(height: 32),
-                _SectionTitle(title: 'المتاجر', showAll: data.stores.isNotEmpty, onShowAll: () => context.push('/stores')),
-                _StoresStrip(stores: data.stores, onTap: (s) => context.push('/store/${s.id}')),
                 const SizedBox(height: 24),
               ],
             ),
