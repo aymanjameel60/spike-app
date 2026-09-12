@@ -53,10 +53,12 @@ class CategoryModel {
     final rawActionTarget = '${j['action_target'] ?? ''}'.trim();
     final rawParentId = '${j['parent_id'] ?? ''}'.trim();
     final rawParentName = '${j['parent_name'] ?? ''}'.trim();
+    final rawName = '${j['name'] ?? ''}'.trim();
+    final isMoreName = rawName == 'المزيد' || rawName == 'كل الفئات';
 
     return CategoryModel(
       id: '${j['id'] ?? ''}',
-      name: '${j['name'] ?? ''}',
+      name: rawName,
       imageUrl: resolved.isEmpty ? null : resolved,
       bannerUrl: resolvedBanner.isEmpty ? null : resolvedBanner,
       parentId: rawParentId.isEmpty ? null : rawParentId,
@@ -67,7 +69,7 @@ class CategoryModel {
       sortOrder: int.tryParse('${j['sort_order'] ?? 0}') ?? 0,
       actionType: rawActionType.isEmpty ? 'category' : rawActionType,
       actionTarget: rawActionTarget.isEmpty ? null : rawActionTarget,
-      showAsMore: j['show_as_more'] == true,
+      showAsMore: j['show_as_more'] == true || isMoreName,
     );
   }
 }
