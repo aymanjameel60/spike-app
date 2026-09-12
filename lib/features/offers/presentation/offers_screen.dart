@@ -269,24 +269,18 @@ class _OffersScreenState extends ConsumerState<OffersScreen> {
                           ),
                         ),
                       ),
-                      Material(
-                        color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
-                        borderRadius: BorderRadius.circular(20),
-                        child: InkWell(
-                          onTap: _filters,
-                          borderRadius: BorderRadius.circular(20),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(LucideIcons.slidersHorizontal, size: 16),
-                                SizedBox(width: 6),
-                                Text(
-                                  'ترتيب حسب',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                                ),
-                              ],
+                      SizedBox(
+                        width: 50,
+                        height: 40,
+                        child: Material(
+                          color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
+                          borderRadius: BorderRadius.circular(22),
+                          child: InkWell(
+                            onTap: _filters,
+                            borderRadius: BorderRadius.circular(22),
+                            child: const Tooltip(
+                              message: 'فلترة وترتيب',
+                              child: Icon(LucideIcons.slidersHorizontal, size: 19),
                             ),
                           ),
                         ),
