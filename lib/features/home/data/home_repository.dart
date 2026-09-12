@@ -122,6 +122,7 @@ class HomeRepository {
       _get('categories', '/categories'),
       _homeProducts(),
       _get('stores', '/stores'),
+      _get('collections', '/collections'),
       _get('sections', '/home-sections'),
       _get('banners', '/banners', query: {'placement': 'home'}),
       _get(
@@ -135,7 +136,8 @@ class HomeRepository {
     final categoriesRaw = results[0]['categories'] as List? ?? const [];
     final productsRaw = results[1]['products'] as List? ?? const [];
     final storesRaw = results[2]['stores'] as List? ?? const [];
-    final home = results[3];
+    final collectionsRaw = results[3]['collections'] as List? ?? const [];
+    final home = results[4];
 
     final categories = categoriesRaw
         .whereType<Map>()
@@ -149,7 +151,7 @@ class HomeRepository {
         .map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e)))
         .toList();
 
-    final bestSellers = (results[5]['products'] as List? ?? const [])
+    final bestSellers = (results[6]['products'] as List? ?? const [])
         .whereType<Map>()
         .map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e)))
         .toList();
@@ -159,7 +161,13 @@ class HomeRepository {
         .map((e) => StoreModel.fromJson(Map<String, dynamic>.from(e)))
         .toList();
 
-    final banners = (results[4]['banners'] as List? ?? const [])
+    final collections = collectionsRaw
+        .whereType<Map>()
+        .map((e) => CollectionModel.fromJson(Map<String, dynamic>.from(e)))
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+    final banners = (results[5]['banners'] as List? ?? const [])
         .whereType<Map>()
         .map((e) => BannerItem.fromJson(Map<String, dynamic>.from(e)))
         .where((e) => e.imageUrl.isNotEmpty)
@@ -171,14 +179,6 @@ class HomeRepository {
         .where((e) => e.title.isNotEmpty)
         .toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-
-    final collectionItems = sections
-        .where((s) => s.contentType == 'collections')
-        .expand((s) => s.items)
-        .toList();
-    final collections = collectionItems
-        .map(CollectionModel.fromJson)
-        .toList();
 
     return HomeData(
       categories: categories,
