@@ -97,6 +97,10 @@ class _DynamicHomeSectionsState extends ConsumerState<DynamicHomeSections> {
   void _showAll(HomeSectionModel section) {
     final type = section.showAllTargetType;
     final id = section.showAllTargetId;
+    if (type == 'section') {
+      context.push('/section/${id ?? section.id}');
+      return;
+    }
     if (type == 'category' && id != null) {
       context.push('/products?category=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(section.title)}');
       return;
