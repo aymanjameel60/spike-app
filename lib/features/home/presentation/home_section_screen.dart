@@ -16,9 +16,9 @@ class HomeSectionScreen extends ConsumerWidget {
       future: ref.read(homeRepositoryProvider).section(id),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
+          return Scaffold(
             appBar: AppBar(),
-            body: Center(child: CircularProgressIndicator()),
+            body: const Center(child: CircularProgressIndicator()),
           );
         }
         if (snapshot.hasError || !snapshot.hasData) {
