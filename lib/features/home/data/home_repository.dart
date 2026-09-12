@@ -139,13 +139,15 @@ class HomeRepository {
     final collectionsRaw = results[3]['collections'] as List? ?? const [];
     final home = results[4];
 
-    // Keep the exact API order used by the customer web. The backend already
-    // returns categories by sort_order, created_at, and the web consumes that
-    // same ordered list without restricting the home section to root nodes.
+    // Match the customer web "All categories" contract exactly: keep the
+    // backend order and exclude navigation-only "more/all categories" items.
     final categories = categoriesRaw
         .whereType<Map>()
         .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
-        .where((e) => e.enabled)
+        .where((e) =>
+            e.enabled &&
+            !e.showAsMore &&
+            e.actionType != 'all_categories')
         .toList();
 
     final products = productsRaw
