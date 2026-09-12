@@ -62,5 +62,10 @@ class CartRepository{
     final old=await _readGuest();return _saveGuest(CartSnapshot(items:old.items,currencyCode:currencyCode??old.currencyCode,couponCode:couponCode??old.couponCode,estimated:true));
   }
 
+  Future<void> clear()async{
+    if(!await _guest){await _api.delete('/cart',auth:true);return;}
+    final prefs=await SharedPreferences.getInstance();await prefs.remove(_guestKey);
+  }
+
   Future<void> mergeGuestCart()async{final cart=await _readGuest();for(final item in cart.items){await _api.post('/cart/items',auth:true,data:{'variant_id':item.variantId,'quantity':item.quantity});}final prefs=await SharedPreferences.getInstance();await prefs.remove(_guestKey);}
 }
