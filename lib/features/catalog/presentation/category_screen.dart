@@ -25,6 +25,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   final _products = <ProductModel>[];
   final _favoriteBusy = <String>{};
   final _scrollController = ScrollController();
+
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasNext = false;
@@ -32,10 +33,12 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   Object? _error;
   String _sort = 'relevance';
   String _filter = 'all';
+  late String _selectedCategoryId;
 
   @override
   void initState() {
     super.initState();
+    _selectedCategoryId = widget.id;
     _scrollController.addListener(_handleScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load(reset: true));
   }
@@ -52,6 +55,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   void didUpdateWidget(covariant CategoryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.id != widget.id) {
+      _selectedCategoryId = widget.id;
       _sort = 'relevance';
       _filter = 'all';
       _load(reset: true);
@@ -81,9 +85,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
       if (_loadingMore || !_hasNext) return;
       setState(() => _loadingMore = true);
     }
+
     try {
       final result = await ref.read(catalogRepositoryProvider).pagedProducts(
-            categoryId: widget.id,
+            categoryId: _selectedCategoryId,
             includeDescendants: true,
             page: reset ? 1 : _page + 1,
             pageSize: _pageSize,
@@ -108,6 +113,42 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     }
   }
 
+  Future<void> _selectSubcategory(CategoryModel category) async {
+    final target = category.effectiveCategoryId ?? category.id;
+
+    if (category.effectiveCollectionId != null) {
+      context.push(
+        '/products?collection=${Uri.encodeComponent(category.effectiveCollectionId!)}&title=${Uri.encodeComponent(category.name)}',
+      );
+      return;
+    }
+
+    final nextId = _selectedCategoryId == target ? widget.id : target;
+    if (nextId == _selectedCategoryId) return;
+
+    setState(() {
+      _selectedCategoryId = nextId;
+      _sort = 'relevance';
+      _filter = 'all';
+    });
+
+    if (_scrollController.hasClients) {
+      final currentOffset = _scrollController.offset;
+      await _load(reset: true);
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(
+          currentOffset.clamp(
+            0.0,
+            _scrollController.position.maxScrollExtent,
+          ),
+        );
+      }
+      return;
+    }
+
+    await _load(reset: true);
+  }
+
   double _discount(ProductModel product) {
     final original = product.originalPrice ?? 0;
     return original > product.price && original > 0
@@ -124,6 +165,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     } else if (_filter == 'available') {
       list = list.where((p) => p.purchasable).toList();
     }
+
     if (_sort == 'price-low') {
       list.sort((a, b) => a.price.compareTo(b.price));
     } else if (_sort == 'price-high') {
@@ -231,10 +273,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                   contentPadding: EdgeInsets.zero,
                   value: option.$1,
                   groupValue: _sort,
-                  title: Text(
-                    option.$2,
-                    style: const TextStyle(fontSize: 14),
-                  ),
+                  title: Text(option.$2, style: const TextStyle(fontSize: 14)),
                   onChanged: (value) {
                     if (value == null) return;
                     setState(() => _sort = value);
@@ -262,76 +301,67 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'فلترة المنتجات',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'فلترة المنتجات',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
-                      TextButton(
-                        onPressed: () {
-                          setState(() => _filter = 'all');
-                          setSheetState(() {});
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _filter = 'all');
+                        setSheetState(() {});
+                      },
+                      child: const Text(
+                        'مسح الكل',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    _closeButton(() => Navigator.pop(sheetContext)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'عرض المنتجات',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.start,
+                  children: [
+                    for (final option in options)
+                      _filterChip(
+                        label: option.$2,
+                        selected: _filter == option.$1,
+                        onTap: () {
+                          setState(() => _filter = option.$1);
+                          Navigator.pop(sheetContext);
                         },
-                        child: const Text(
-                          'مسح الكل',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
                       ),
-                      _closeButton(() => Navigator.pop(sheetContext)),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'عرض المنتجات',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.start,
-                    children: [
-                      for (final option in options)
-                        _filterChip(
-                          label: option.$2,
-                          selected: _filter == option.$1,
-                          onTap: () {
-                            setState(() => _filter = option.$1);
-                            Navigator.pop(sheetContext);
-                          },
-                        ),
-                    ],
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
 
   Widget _closeButton(VoidCallback onTap) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: dark ? Colors.white : Colors.white,
+      color: Colors.white,
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
@@ -409,7 +439,17 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
       constraints: const BoxConstraints(minWidth: 210, maxHeight: 320),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       onSelected: (id) {
-        if (id == widget.id) return;
+        if (id == widget.id) {
+          if (_selectedCategoryId != widget.id) {
+            setState(() {
+              _selectedCategoryId = widget.id;
+              _sort = 'relevance';
+              _filter = 'all';
+            });
+            _load(reset: true);
+          }
+          return;
+        }
         final selected = roots.where((item) => item.id == id).firstOrNull;
         if (selected != null) _openCategory(selected);
       },
@@ -511,6 +551,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   Widget build(BuildContext context) {
     final categories = ref.watch(categoriesProvider);
     final favoriteIds = ref.watch(wishlistIdsProvider).valueOrNull ?? <String>{};
+
     return categories.when(
       loading: () => Scaffold(
         body: SafeArea(
@@ -536,6 +577,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
             break;
           }
         }
+
         if (category == null) {
           return const Scaffold(
             body: SafeArea(
@@ -543,6 +585,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
             ),
           );
         }
+
         final current = category;
         final children = all
             .where((item) => item.parentId == current.id && item.enabled)
@@ -571,10 +614,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                               onPressed: () => context.canPop()
                                   ? context.pop()
                                   : context.go('/categories'),
-                              icon: const Icon(
-                                LucideIcons.arrowRight,
-                                size: 22,
-                              ),
+                              icon: const Icon(LucideIcons.arrowRight, size: 22),
                             ),
                             Expanded(
                               child: Text(
@@ -643,18 +683,22 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             scrollDirection: Axis.horizontal,
                             padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
                             itemCount: children.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 8),
+                            separatorBuilder: (_, __) => const SizedBox(width: 8),
                             itemBuilder: (context, index) {
                               final child = children[index];
+                              final target = child.effectiveCategoryId ?? child.id;
+                              final selected = _selectedCategoryId == target;
+                              final dark = Theme.of(context).brightness == Brightness.dark;
+
                               return Material(
-                                color: Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? spikeDarkPanel
-                                    : const Color(0xFFF1F1F1),
+                                color: selected
+                                    ? (dark ? Colors.white : Colors.black)
+                                    : (dark
+                                        ? spikeDarkPanel
+                                        : const Color(0xFFF1F1F1)),
                                 borderRadius: BorderRadius.circular(18),
                                 child: InkWell(
-                                  onTap: () => _openCategory(child),
+                                  onTap: () => _selectSubcategory(child),
                                   borderRadius: BorderRadius.circular(18),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -663,16 +707,21 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                                     ),
                                     decoration: BoxDecoration(
                                       border: Border.all(
-                                        color: Colors.black.withValues(alpha: .08),
+                                        color: selected
+                                            ? Colors.transparent
+                                            : Colors.black.withValues(alpha: .08),
                                       ),
                                       borderRadius: BorderRadius.circular(18),
                                     ),
                                     child: Text(
                                       child.name,
                                       maxLines: 1,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
+                                        color: selected
+                                            ? (dark ? Colors.black : Colors.white)
+                                            : Theme.of(context).colorScheme.onSurface,
                                       ),
                                     ),
                                   ),
@@ -718,8 +767,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             return SpikeProductCard(
                               product: product,
                               isFavorite: favoriteIds.contains(product.id),
-                              onTap: () =>
-                                  context.push('/product/${product.id}'),
+                              onTap: () => context.push('/product/${product.id}'),
                               onAdd: product.purchasable &&
                                       product.cheapestVariant != null
                                   ? () => _add(product)
@@ -729,9 +777,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                                   : () => _favorite(product),
                               onStore: product.storeId == null
                                   ? null
-                                  : () => context.push(
-                                        '/store/${product.storeId}',
-                                      ),
+                                  : () => context.push('/store/${product.storeId}'),
                             );
                           },
                           childCount: visibleProducts.length,
