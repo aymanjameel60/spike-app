@@ -54,110 +54,43 @@ final appRouter = GoRouter(
         GoRoute(path: '/delete-account', pageBuilder: (_, state) => _page(state, const DeleteAccountScreen())),
         GoRoute(path: '/checkout', pageBuilder: (_, state) => _page(state, const CheckoutScreen())),
         GoRoute(path: '/orders', pageBuilder: (_, state) => _page(state, const OrdersScreen())),
-        GoRoute(
-          path: '/order/:id',
-          pageBuilder: (_, state) => _page(
-            state,
-            OrderDetailsScreen(id: state.pathParameters['id']!),
-          ),
-        ),
+        GoRoute(path: '/order/:id', pageBuilder: (_, state) => _page(state, OrderDetailsScreen(id: state.pathParameters['id']!))),
         GoRoute(path: '/returns-refunds', pageBuilder: (_, state) => _page(state, const ReturnsRefundsScreen())),
         GoRoute(path: '/notifications', pageBuilder: (_, state) => _page(state, const NotificationsScreen())),
         GoRoute(path: '/reviews', pageBuilder: (_, state) => _page(state, const ReviewsScreen())),
         GoRoute(path: '/share-win', pageBuilder: (_, state) => _page(state, const ShareWinScreen())),
         GoRoute(path: '/support', pageBuilder: (_, state) => _page(state, const SupportChatScreen())),
         GoRoute(path: '/addresses', pageBuilder: (_, state) => _page(state, const AddressesScreen())),
-        GoRoute(
-          path: '/address-form',
-          pageBuilder: (_, state) => _page(
-            state,
-            AddressFormScreen(
-              address: state.extra is AddressModel
-                  ? state.extra as AddressModel
-                  : null,
-            ),
-          ),
-        ),
+        GoRoute(path: '/address-form', pageBuilder: (_, state) => _page(state, AddressFormScreen(address: state.extra is AddressModel ? state.extra as AddressModel : null))),
         GoRoute(path: '/categories', pageBuilder: (_, state) => _page(state, const CategoriesScreen())),
-        GoRoute(
-          path: '/category/:id',
-          pageBuilder: (_, state) => _page(
-            state,
-            CategoryScreen(id: state.pathParameters['id']!),
-          ),
-        ),
+        GoRoute(path: '/category/:id', pageBuilder: (_, state) => _page(state, CategoryScreen(id: state.pathParameters['id']!))),
         GoRoute(path: '/stores', pageBuilder: (_, state) => _page(state, const StoresScreen())),
-        GoRoute(
-          path: '/section/:id',
-          pageBuilder: (_, state) => _page(
-            state,
-            HomeSectionScreen(id: state.pathParameters['id']!),
-          ),
-        ),
-        GoRoute(
-          path: '/store/:id',
-          pageBuilder: (_, state) => _page(
-            state,
-            StoreDetailsScreen(id: state.pathParameters['id']!),
-          ),
-        ),
+        GoRoute(path: '/section/:id', pageBuilder: (_, state) => _page(state, HomeSectionScreen(id: state.pathParameters['id']!))),
+        GoRoute(path: '/store/:id', pageBuilder: (_, state) => _page(state, StoreDetailsScreen(id: state.pathParameters['id']!))),
         GoRoute(
           path: '/products',
-          pageBuilder: (_, state) => _page(
-            state,
-            ProductsScreen(
-              key: ValueKey('products:${state.uri}'),
-              categoryId: state.uri.queryParameters['category'],
-              collectionId: state.uri.queryParameters['collection'],
-              title: state.uri.queryParameters['title'] ?? 'المنتجات',
-            ),
-          ),
+          pageBuilder: (_, state) {
+            final categoryId = state.uri.queryParameters['category'];
+            if ((categoryId ?? '').isNotEmpty) {
+              return _page(state, CategoryScreen(id: categoryId!));
+            }
+            return _page(
+              state,
+              ProductsScreen(
+                key: ValueKey('products:${state.uri}'),
+                collectionId: state.uri.queryParameters['collection'],
+                title: state.uri.queryParameters['title'] ?? 'المنتجات',
+              ),
+            );
+          },
         ),
-        GoRoute(
-          path: '/product/:id',
-          pageBuilder: (_, state) => _page(
-            state,
-            ProductDetailsScreen(id: state.pathParameters['id']!),
-          ),
-        ),
-        GoRoute(
-          path: '/search',
-          pageBuilder: (_, state) => _page(
-            state,
-            SearchScreen(initialQuery: state.uri.queryParameters['q'] ?? ''),
-          ),
-        ),
+        GoRoute(path: '/product/:id', pageBuilder: (_, state) => _page(state, ProductDetailsScreen(id: state.pathParameters['id']!))),
+        GoRoute(path: '/search', pageBuilder: (_, state) => _page(state, SearchScreen(initialQuery: state.uri.queryParameters['q'] ?? ''))),
       ],
     ),
     GoRoute(path: '/password-reset', pageBuilder: (_, state) => _page(state, const PasswordResetScreen())),
-    GoRoute(
-      path: '/login',
-      pageBuilder: (_, state) => _page(
-        state,
-        AuthScreen(
-          mode: 'login',
-          afterLoginRoute:
-              (state.uri.queryParameters['next']?.isNotEmpty ?? false)
-                  ? state.uri.queryParameters['next']!
-                  : '/profile',
-          referralCode: state.uri.queryParameters['ref'] ?? '',
-        ),
-      ),
-    ),
-    GoRoute(
-      path: '/signup',
-      pageBuilder: (_, state) => _page(
-        state,
-        AuthScreen(
-          mode: 'signup',
-          afterLoginRoute:
-              (state.uri.queryParameters['next']?.isNotEmpty ?? false)
-                  ? state.uri.queryParameters['next']!
-                  : '/profile',
-          referralCode: state.uri.queryParameters['ref'] ?? '',
-        ),
-      ),
-    ),
+    GoRoute(path: '/login', pageBuilder: (_, state) => _page(state, AuthScreen(mode: 'login', afterLoginRoute: (state.uri.queryParameters['next']?.isNotEmpty ?? false) ? state.uri.queryParameters['next']! : '/profile', referralCode: state.uri.queryParameters['ref'] ?? ''))),
+    GoRoute(path: '/signup', pageBuilder: (_, state) => _page(state, AuthScreen(mode: 'signup', afterLoginRoute: (state.uri.queryParameters['next']?.isNotEmpty ?? false) ? state.uri.queryParameters['next']! : '/profile', referralCode: state.uri.queryParameters['ref'] ?? ''))),
   ],
   errorBuilder: (_, __) => const Directionality(
     textDirection: TextDirection.rtl,
