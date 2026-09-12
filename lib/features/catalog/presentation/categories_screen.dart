@@ -33,9 +33,9 @@ class CategoriesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // The customer web is the UI/UX source of truth. Use the same ordered
-    // category list that powers Home, then apply the exact web visibility
-    // rules for the "all categories" screen without a root-only filter.
+    // HomeData keeps two views of the same backend-ordered category data:
+    // Home pins the configurable all-categories navigation tile to slot 8,
+    // while this screen receives only real categories.
     final state = ref.watch(homeDataProvider);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final mutedIcon = Theme.of(context).colorScheme.onSurface.withValues(alpha: .24);
@@ -66,12 +66,7 @@ class CategoriesScreen extends ConsumerWidget {
                 onRetry: () => ref.invalidate(homeDataProvider),
               ),
               data: (home) {
-                final visible = home.categories
-                    .where((c) =>
-                        c.enabled &&
-                        !c.showAsMore &&
-                        c.actionType != 'all_categories')
-                    .toList();
+                final visible = home.allCategories;
                 return visible.isEmpty
                     ? const SpikeEmptyState(message: 'لا توجد فئات منشورة بعد')
                     : RefreshIndicator(
