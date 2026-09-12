@@ -149,6 +149,32 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     await _load(reset: true);
   }
 
+  Future<void> _selectAllSubcategories() async {
+    if (_selectedCategoryId == widget.id) return;
+
+    setState(() {
+      _selectedCategoryId = widget.id;
+      _sort = 'relevance';
+      _filter = 'all';
+    });
+
+    if (_scrollController.hasClients) {
+      final currentOffset = _scrollController.offset;
+      await _load(reset: true);
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(
+          currentOffset.clamp(
+            0.0,
+            _scrollController.position.maxScrollExtent,
+          ),
+        );
+      }
+      return;
+    }
+
+    await _load(reset: true);
+  }
+
   double _discount(ProductModel product) {
     final original = product.originalPrice ?? 0;
     return original > product.price && original > 0
@@ -682,13 +708,55 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
                             padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
-                            itemCount: children.length,
+                            itemCount: children.length + 1,
                             separatorBuilder: (_, __) => const SizedBox(width: 8),
                             itemBuilder: (context, index) {
-                              final child = children[index];
+                              final dark = Theme.of(context).brightness == Brightness.dark;
+
+                              if (index == 0) {
+                                final selected = _selectedCategoryId == widget.id;
+                                return Material(
+                                  color: selected
+                                      ? (dark ? Colors.white : Colors.black)
+                                      : (dark
+                                          ? spikeDarkPanel
+                                          : const Color(0xFFF1F1F1)),
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: InkWell(
+                                    onTap: _selectAllSubcategories,
+                                    borderRadius: BorderRadius.circular(18),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 9,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: selected
+                                              ? Colors.transparent
+                                              : Colors.black.withValues(alpha: .08),
+                                        ),
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      child: Text(
+                                        'الكل',
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: selected
+                                              ? (dark ? Colors.black : Colors.white)
+                                              : Theme.of(context).colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              final child = children[index - 1];
                               final target = child.effectiveCategoryId ?? child.id;
                               final selected = _selectedCategoryId == target;
-                              final dark = Theme.of(context).brightness == Brightness.dark;
 
                               return Material(
                                 color: selected
