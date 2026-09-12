@@ -41,45 +41,6 @@ class HomeRepository {
 
   static const _cachePrefix = 'spike_home_cache_v1_';
 
-  List<CategoryModel> _orderCategoriesLikeAdmin(List<CategoryModel> rows) {
-    final originalIndex = <String, int>{};
-    for (var i = 0; i < rows.length; i++) {
-      originalIndex[rows[i].id] = i;
-    }
-
-    final ids = rows.map((e) => e.id).toSet();
-    final byParent = <String, List<CategoryModel>>{};
-    for (final row in rows) {
-      final rawParent = row.parentId ?? '';
-      final parent = rawParent.isNotEmpty && ids.contains(rawParent) ? rawParent : '';
-      byParent.putIfAbsent(parent, () => <CategoryModel>[]).add(row);
-    }
-
-    for (final bucket in byParent.values) {
-      bucket.sort((a, b) {
-        final bySort = a.sortOrder.compareTo(b.sortOrder);
-        if (bySort != 0) return bySort;
-        return (originalIndex[a.id] ?? 0).compareTo(originalIndex[b.id] ?? 0);
-      });
-    }
-
-    final ordered = <CategoryModel>[];
-    final seen = <String>{};
-    void walk(String parent) {
-      for (final row in byParent[parent] ?? const <CategoryModel>[]) {
-        if (!seen.add(row.id)) continue;
-        ordered.add(row);
-        walk(row.id);
-      }
-    }
-
-    walk('');
-    for (final row in rows) {
-      if (seen.add(row.id)) ordered.add(row);
-    }
-    return ordered;
-  }
-
   Future<Map<String, dynamic>> _get(
     String key,
     String path, {
@@ -174,37 +135,38 @@ class HomeRepository {
       ),
     ]);
 
-    final categoriesRaw = results[0]['categories'] as List? ?? const [];
+    final categoryResponse = results[0];
+    final categoriesRaw = categoryResponse['categories'] as List? ?? const [];
     final productsRaw = results[1]['products'] as List? ?? const [];
     final storesRaw = results[2]['stores'] as List? ?? const [];
     final collectionsRaw = results[3]['collections'] as List? ?? const [];
     final home = results[4];
 
-    final enabledCategories = _orderCategoriesLikeAdmin(
-      categoriesRaw
-          .whereType<Map>()
-          .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
-          .where((e) => e.enabled)
-          .toList(),
-    );
-    final allCategories = enabledCategories
-        .where((e) =>
-            !e.showAsMore &&
-            e.actionType != 'all_categories' &&
-            e.name.trim() != 'المزيد' &&
-            e.name.trim() != 'كل الفئات')
+    // /categories is the single ordering contract. The backend already emits
+    // real categories in the exact Admin hierarchy order, so Flutter must not
+    // sort or rebuild that order locally.
+    final normalizedCategories = categoriesRaw
+        .whereType<Map>()
+        .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
+        .where((e) => e.enabled)
         .toList();
+
     CategoryModel? moreCategory;
-    for (final category in enabledCategories) {
-      final name = category.name.trim();
-      if (category.showAsMore ||
-          category.actionType == 'all_categories' ||
-          name == 'المزيد' ||
-          name == 'كل الفئات') {
-        moreCategory = category;
-        break;
-      }
+    final rawMore = categoryResponse['more_category'];
+    if (rawMore is Map) {
+      final parsed = CategoryModel.fromJson(Map<String, dynamic>.from(rawMore));
+      if (parsed.enabled) moreCategory = parsed;
     }
+    // Transitional compatibility with an older backend that still returned the
+    // explicit navigation tile inside categories. Do not infer it by its name.
+    moreCategory ??= normalizedCategories.cast<CategoryModel?>().firstWhere(
+          (e) => e != null && (e.showAsMore || e.actionType == 'all_categories'),
+          orElse: () => null,
+        );
+
+    final allCategories = normalizedCategories
+        .where((e) => !e.showAsMore && e.actionType != 'all_categories')
+        .toList();
     final categories = <CategoryModel>[
       ...allCategories.take(moreCategory == null ? 8 : 7),
       if (moreCategory != null) moreCategory,
