@@ -140,7 +140,7 @@ class HomeRepository {
     final categories = categoriesRaw
         .whereType<Map>()
         .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
-        .where((e) => e.enabled)
+        .where((e) => e.enabled && e.isRoot)
         .toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
