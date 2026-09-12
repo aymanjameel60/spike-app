@@ -9,6 +9,7 @@ import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
 import '../../../core/widgets/spike_network_image.dart';
 import '../../../models/product.dart';
+import '../../../widgets/product_card.dart';
 
 class ProductDetailsScreen extends ConsumerStatefulWidget {
   const ProductDetailsScreen({super.key, required this.id});
@@ -22,6 +23,8 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
   String? _variantId;
   bool _favorite = false, _favoriteBusy = false;
   late Future<List<Map<String, dynamic>>> _reviews;
+  Future<List<ProductModel>>? _similarProducts;
+  String? _similarForProductId;
 
   @override
   void initState() {
@@ -66,6 +69,40 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: text));
       if (mounted) showSpikeToast(context, 'تم نسخ بيانات المنتج للمشاركة');
+    }
+  }
+
+  Future<List<ProductModel>> _loadSimilarProducts(ProductModel product) async {
+    final categoryId = product.categoryId?.trim() ?? '';
+    if (categoryId.isEmpty) return const [];
+    final page = await ref.read(catalogRepositoryProvider).pagedProducts(
+          page: 1,
+          pageSize: 12,
+          categoryId: categoryId,
+        );
+    return page.items.where((item) => item.id != product.id).take(10).toList();
+  }
+
+  Future<List<ProductModel>> _similarFuture(ProductModel product) {
+    if (_similarProducts == null || _similarForProductId != product.id) {
+      _similarForProductId = product.id;
+      _similarProducts = _loadSimilarProducts(product);
+    }
+    return _similarProducts!;
+  }
+
+  Future<void> _addSimilarToCart(ProductModel product) async {
+    final variant = product.cheapestVariant;
+    if (variant == null || variant.id.isEmpty || variant.stock <= 0) {
+      showSpikeToast(context, 'هذا المنتج غير متوفر حالياً');
+      return;
+    }
+    try {
+      await ref.read(cartRepositoryProvider).add(variantId: variant.id, product: product);
+      ref.invalidate(cartCountProvider);
+      if (mounted) showSpikeToast(context, 'تمت إضافة المنتج إلى السلة');
+    } catch (e) {
+      if (mounted) showSpikeToast(context, e.toString());
     }
   }
 
@@ -252,6 +289,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                 ]),
               ),
           ]),
+          _similarProductsBlock(p),
           _block([
             const Text('التقييمات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 14),
@@ -308,6 +346,65 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
         ),
       ),
     ]);
+  }
+
+  Widget _similarProductsBlock(ProductModel product) {
+    final categoryId = product.categoryId?.trim() ?? '';
+    if (categoryId.isEmpty) return const SizedBox.shrink();
+    return FutureBuilder<List<ProductModel>>(
+      future: _similarFuture(product),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _block(const [
+            Text('منتجات مشابهة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            SizedBox(height: 14),
+            LinearProgressIndicator(minHeight: 2),
+          ]);
+        }
+        if (snapshot.hasError) {
+          return _block([
+            const Text('منتجات مشابهة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 10),
+            const Text('تعذر تحميل المنتجات المشابهة.', style: TextStyle(fontSize: 11, color: spikeMuted)),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => setState(() {
+                  _similarProducts = null;
+                  _similarForProductId = null;
+                }),
+                icon: const Icon(LucideIcons.refreshCw, size: 15),
+                label: const Text('إعادة المحاولة'),
+              ),
+            ),
+          ]);
+        }
+        final items = snapshot.data ?? const <ProductModel>[];
+        if (items.isEmpty) return const SizedBox.shrink();
+        return _block([
+          const Text('منتجات مشابهة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 275,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return SpikeProductCard(
+                  product: item,
+                  onTap: () => context.push('/product/${item.id}'),
+                  onStore: (item.storeId ?? '').isEmpty ? null : () => context.push('/store/${item.storeId}'),
+                  onAdd: () => _addSimilarToCart(item),
+                );
+              },
+            ),
+          ),
+        ]);
+      },
+    );
   }
 
   Widget _block(List<Widget> children) => Container(
