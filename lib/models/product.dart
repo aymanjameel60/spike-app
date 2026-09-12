@@ -25,12 +25,13 @@ class ProductVariant {
 }
 
 class ProductModel {
-  const ProductModel({required this.id, required this.name, required this.storeName, this.storeId, this.description, this.categoryName, this.returnable = false, this.imageUrl, this.images = const [], this.createdAt, required this.rating, required this.reviewCount, required this.variants});
+  const ProductModel({required this.id, required this.name, required this.storeName, this.storeId, this.description, this.categoryId, this.categoryName, this.returnable = false, this.imageUrl, this.images = const [], this.createdAt, required this.rating, required this.reviewCount, required this.variants});
   final String id;
   final String name;
   final String storeName;
   final String? storeId;
   final String? description;
+  final String? categoryId;
   final String? categoryName;
   final bool returnable;
   final String? imageUrl;
@@ -59,6 +60,7 @@ class ProductModel {
       storeName: '${j['store_name'] ?? j['store']?['name'] ?? 'Spike'}',
       storeId: (j['store_id'] ?? j['store']?['id'])?.toString(),
       description: j['description']?.toString(),
+      categoryId: (j['category_id'] ?? j['category']?['id'])?.toString(),
       categoryName: j['category_name']?.toString(),
       returnable: j['returnable'] == true,
       imageUrl: images.isEmpty ? _absoluteImage(j['image_url']) : images.first,
