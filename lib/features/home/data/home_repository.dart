@@ -139,12 +139,14 @@ class HomeRepository {
     final collectionsRaw = results[3]['collections'] as List? ?? const [];
     final home = results[4];
 
+    // Keep the exact API order used by the customer web. The backend already
+    // returns categories by sort_order, created_at, and the web consumes that
+    // same ordered list without restricting the home section to root nodes.
     final categories = categoriesRaw
         .whereType<Map>()
         .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
-        .where((e) => e.enabled && e.isRoot)
-        .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        .where((e) => e.enabled)
+        .toList();
 
     final products = productsRaw
         .whereType<Map>()
