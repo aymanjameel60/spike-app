@@ -5,6 +5,7 @@ class CategoryModel {
     required this.id,
     required this.name,
     this.imageUrl,
+    this.bannerUrl,
     this.parentId,
     this.parentName,
     this.hasChildren = false,
@@ -18,6 +19,7 @@ class CategoryModel {
   final String id;
   final String name;
   final String? imageUrl;
+  final String? bannerUrl;
   final String? parentId;
   final String? parentName;
   final bool hasChildren;
@@ -46,6 +48,7 @@ class CategoryModel {
 
   factory CategoryModel.fromJson(Map<String, dynamic> j) {
     final resolved = ApiConfig.resolveMedia('${j['image_url'] ?? ''}');
+    final resolvedBanner = ApiConfig.resolveMedia('${j['banner_url'] ?? ''}');
     final rawActionType = '${j['action_type'] ?? 'category'}'.trim();
     final rawActionTarget = '${j['action_target'] ?? ''}'.trim();
     final rawParentId = '${j['parent_id'] ?? ''}'.trim();
@@ -55,6 +58,7 @@ class CategoryModel {
       id: '${j['id'] ?? ''}',
       name: '${j['name'] ?? ''}',
       imageUrl: resolved.isEmpty ? null : resolved,
+      bannerUrl: resolvedBanner.isEmpty ? null : resolvedBanner,
       parentId: rawParentId.isEmpty ? null : rawParentId,
       parentName: rawParentName.isEmpty ? null : rawParentName,
       hasChildren: j['has_children'] == true ||
