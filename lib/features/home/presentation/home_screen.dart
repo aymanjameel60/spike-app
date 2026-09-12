@@ -15,6 +15,7 @@ import '../../../models/category.dart';
 import '../../../models/collection.dart';
 import '../../../models/product.dart';
 import '../../../models/store.dart';
+import '../../../widgets/dynamic_home_sections.dart';
 import '../../../widgets/product_card.dart';
 import '../../checkout/data/commerce_repository.dart';
 
@@ -143,6 +144,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   stores: data.stores,
                   onTap: (store) => context.push('/store/${store.id}'),
                 ),
+                if (data.sections.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  DynamicHomeSections(sections: data.sections),
+                ],
                 const SizedBox(height: 18),
               ],
             ),
@@ -202,6 +207,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context.push('/categories');
       return;
     }
+    if (actionType == 'offers') {
+      context.push('/offers');
+      return;
+    }
+    if (actionType == 'stores') {
+      context.push('/stores');
+      return;
+    }
     if (actionType == 'section' && target.isNotEmpty) {
       context.push('/section/${Uri.encodeComponent(target)}');
       return;
@@ -225,6 +238,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context.push('/product/$id');
     } else if (type == 'category') {
       context.push('/category/${Uri.encodeComponent(id)}');
+    } else if (type == 'store') {
+      context.push('/store/$id');
     } else if (type == 'collection') {
       context.push(
         '/products?collection=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(collection.name)}',
@@ -1112,7 +1127,6 @@ class _StoresStrip extends StatelessWidget {
                             ),
                           ),
                         ),
-                      ),
               ),
             ),
           );
