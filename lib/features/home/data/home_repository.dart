@@ -7,6 +7,7 @@ import '../../../core/network/api_client.dart';
 import '../../../models/banner_item.dart';
 import '../../../models/category.dart';
 import '../../../models/collection.dart';
+import '../../../models/home_section.dart';
 import '../../../models/product.dart';
 import '../../../models/store.dart';
 
@@ -18,6 +19,7 @@ class HomeData {
     required this.stores,
     required this.banners,
     required this.collections,
+    required this.sections,
   });
 
   final List<CategoryModel> categories;
@@ -26,6 +28,7 @@ class HomeData {
   final List<StoreModel> stores;
   final List<BannerItem> banners;
   final List<CollectionModel> collections;
+  final List<HomeSectionModel> sections;
 }
 
 class HomeRepository {
@@ -151,12 +154,20 @@ class HomeRepository {
         .where((e) => e.imageUrl.isNotEmpty)
         .toList();
 
-    final collections = (home['spike_collections'] as List? ?? const [])
+    final sections = (home['sections'] as List? ?? const [])
         .whereType<Map>()
-        .where((e) => e['enabled'] != false)
-        .map((e) => CollectionModel.fromJson(Map<String, dynamic>.from(e)))
+        .map((e) => HomeSectionModel.fromJson(Map<String, dynamic>.from(e)))
+        .where((e) => e.title.isNotEmpty)
         .toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+    final collectionItems = sections
+        .where((s) => s.contentType == 'collections')
+        .expand((s) => s.items)
+        .toList();
+    final collections = collectionItems
+        .map(CollectionModel.fromJson)
+        .toList();
 
     return HomeData(
       categories: categories,
@@ -165,6 +176,7 @@ class HomeRepository {
       stores: stores,
       banners: banners,
       collections: collections,
+      sections: sections,
     );
   }
 }
