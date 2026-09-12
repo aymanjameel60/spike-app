@@ -29,6 +29,8 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   bool _hasNext = false;
   int _page = 1;
   Object? _error;
+  String _sort = 'relevance';
+  String _filter = 'all';
 
   @override
   void initState() {
@@ -39,7 +41,11 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   @override
   void didUpdateWidget(covariant CategoryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.id != widget.id) _load(reset: true);
+    if (oldWidget.id != widget.id) {
+      _sort = 'relevance';
+      _filter = 'all';
+      _load(reset: true);
+    }
   }
 
   Future<void> _load({required bool reset}) async {
@@ -81,6 +87,34 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
         _error = error;
       });
     }
+  }
+
+  double _discount(ProductModel product) {
+    final original = product.originalPrice ?? 0;
+    return original > product.price && original > 0
+        ? (original - product.price) / original
+        : 0;
+  }
+
+  List<ProductModel> _visibleProducts() {
+    var list = _products.toList();
+    if (_filter == 'offers') {
+      list = list.where((p) => _discount(p) > 0).toList();
+    } else if (_filter == 'rating4') {
+      list = list.where((p) => p.rating >= 4).toList();
+    } else if (_filter == 'available') {
+      list = list.where((p) => p.purchasable).toList();
+    }
+    if (_sort == 'price-low') {
+      list.sort((a, b) => a.price.compareTo(b.price));
+    } else if (_sort == 'price-high') {
+      list.sort((a, b) => b.price.compareTo(a.price));
+    } else if (_sort == 'rating') {
+      list.sort((a, b) => b.rating.compareTo(a.rating));
+    } else if (_sort == 'discount') {
+      list.sort((a, b) => _discount(b).compareTo(_discount(a)));
+    }
+    return list;
   }
 
   Future<void> _add(ProductModel product) async {
@@ -130,7 +164,227 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
       );
       return;
     }
-    context.push('/category/${Uri.encodeComponent(category.effectiveCategoryId ?? category.id)}');
+    context.push(
+      '/category/${Uri.encodeComponent(category.effectiveCategoryId ?? category.id)}',
+    );
+  }
+
+  void _showRootCategories(List<CategoryModel> all) {
+    final roots = all.where((c) => c.enabled && c.isRoot).toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(17, 12, 17, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(sheetContext).dividerColor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'جميع الفئات',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(sheetContext),
+                    icon: const Icon(LucideIcons.x, size: 20),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: .9,
+                  ),
+                  itemCount: roots.length,
+                  itemBuilder: (context, index) {
+                    final item = roots[index];
+                    return InkWell(
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        if (item.id != widget.id) _openCategory(item);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              width: double.infinity,
+                              clipBehavior: Clip.antiAlias,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(16),
+                                border: item.id == widget.id
+                                    ? Border.all(color: spikeRed, width: 1.5)
+                                    : null,
+                              ),
+                              child: item.imageUrl == null
+                                  ? const Icon(LucideIcons.image)
+                                  : SpikeNetworkImage(
+                                      url: item.imageUrl,
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSort() {
+    final options = <(String, String)>[
+      ('relevance', 'الأكثر صلة'),
+      ('price-low', 'السعر: الأقل أولاً'),
+      ('price-high', 'السعر: الأعلى أولاً'),
+      ('rating', 'الأعلى تقييمًا'),
+      ('discount', 'الأعلى خصمًا'),
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(17, 12, 17, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text('الترتيب', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(sheetContext),
+                    icon: const Icon(LucideIcons.x, size: 20),
+                  ),
+                ],
+              ),
+              for (final option in options)
+                RadioListTile<String>(
+                  value: option.$1,
+                  groupValue: _sort,
+                  title: Text(option.$2),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _sort = value);
+                    Navigator.pop(sheetContext);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFilter() {
+    final options = <(String, String)>[
+      ('all', 'كل المنتجات'),
+      ('offers', 'العروض فقط'),
+      ('rating4', '4 نجوم فأعلى'),
+      ('available', 'المتوفر حاليًا'),
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(17, 12, 17, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text('الفلتر', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _filter = 'all');
+                      Navigator.pop(sheetContext);
+                    },
+                    child: const Text('مسح الكل'),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(sheetContext),
+                    icon: const Icon(LucideIcons.x, size: 20),
+                  ),
+                ],
+              ),
+              for (final option in options)
+                RadioListTile<String>(
+                  value: option.$1,
+                  groupValue: _filter,
+                  title: Text(option.$2),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _filter = value);
+                    Navigator.pop(sheetContext);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _toolButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: dark ? spikeDarkPanel : const Color(0xFFEDEDED),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15),
+              const SizedBox(width: 5),
+              Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -163,6 +417,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
             .where((item) => item.parentId == current.id && item.enabled)
             .toList()
           ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        final visibleProducts = _visibleProducts();
 
         return Scaffold(
           body: SafeArea(
@@ -199,13 +454,54 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       ),
                     ),
                   ),
-                  if (children.isNotEmpty) ...[
-                    const SliverToBoxAdapter(
+                  if (current.isRoot && current.bannerUrl != null)
+                    SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(17, 14, 17, 10),
-                        child: Text('الفئات الفرعية', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                        padding: const EdgeInsets.fromLTRB(17, 4, 17, 14),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: AspectRatio(
+                            aspectRatio: 3.1,
+                            child: SpikeNetworkImage(
+                              url: current.bannerUrl,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(17, 2, 17, 12),
+                      child: Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: () => _showRootCategories(all),
+                            iconAlignment: IconAlignment.end,
+                            icon: const Icon(LucideIcons.chevronDown, size: 16),
+                            label: const Text(
+                              'الفئات',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          const Spacer(),
+                          _toolButton(
+                            icon: LucideIcons.arrowUpDown,
+                            label: 'الترتيب',
+                            onTap: _showSort,
+                          ),
+                          const SizedBox(width: 7),
+                          _toolButton(
+                            icon: LucideIcons.slidersHorizontal,
+                            label: 'الفلتر',
+                            onTap: _showFilter,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (children.isNotEmpty)
                     SliverToBoxAdapter(
                       child: SizedBox(
                         height: 122,
@@ -255,7 +551,6 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                         ),
                       ),
                     ),
-                  ],
                   const SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(17, 20, 17, 12),
@@ -271,9 +566,9 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                         onRetry: () => _load(reset: true),
                       ),
                     )
-                  else if (_products.isEmpty)
+                  else if (visibleProducts.isEmpty)
                     const SliverToBoxAdapter(
-                      child: SpikeEmptyState(message: 'لا توجد منتجات في هذه الفئة حالياً'),
+                      child: SpikeEmptyState(message: 'لا توجد منتجات مطابقة في هذه الفئة'),
                     )
                   else
                     SliverPadding(
@@ -287,7 +582,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                         ),
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
-                            final product = _products[index];
+                            final product = visibleProducts[index];
                             return SpikeProductCard(
                               product: product,
                               isFavorite: favoriteIds.contains(product.id),
@@ -303,7 +598,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                                   : () => context.push('/store/${product.storeId}'),
                             );
                           },
-                          childCount: _products.length,
+                          childCount: visibleProducts.length,
                         ),
                       ),
                     ),
