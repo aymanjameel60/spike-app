@@ -230,7 +230,9 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                               width: double.infinity,
                               clipBehavior: Clip.antiAlias,
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(16),
                                 border: item.id == widget.id
                                     ? Border.all(color: spikeRed, width: 1.5)
@@ -249,7 +251,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             item.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                       ),
@@ -283,7 +288,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
               Row(
                 children: [
                   const Expanded(
-                    child: Text('الترتيب', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    child: Text(
+                      'الترتيب',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(sheetContext),
@@ -327,7 +335,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
               Row(
                 children: [
                   const Expanded(
-                    child: Text('الفلتر', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    child: Text(
+                      'الفلتر',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
                   ),
                   TextButton(
                     onPressed: () {
@@ -379,7 +390,13 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
             children: [
               Icon(icon, size: 15),
               const SizedBox(width: 5),
-              Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
         ),
@@ -409,7 +426,9 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
         }
         if (category == null) {
           return const Scaffold(
-            body: SafeArea(child: SpikeEmptyState(message: 'الفئة غير موجودة')),
+            body: SafeArea(
+              child: SpikeEmptyState(message: 'الفئة غير موجودة'),
+            ),
           );
         }
         final current = category;
@@ -433,24 +452,32 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       height: 60,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 17),
-                        child: Row(children: [
-                          IconButton(
-                            onPressed: () => context.canPop()
-                                ? context.pop()
-                                : context.go('/categories'),
-                            icon: const Icon(LucideIcons.arrowRight, size: 22),
-                          ),
-                          Expanded(
-                            child: Text(
-                              current.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              onPressed: () => context.canPop()
+                                  ? context.pop()
+                                  : context.go('/categories'),
+                              icon: const Icon(
+                                LucideIcons.arrowRight,
+                                size: 22,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 48),
-                        ]),
+                            Expanded(
+                              child: Text(
+                                current.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 48),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -479,10 +506,16 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           TextButton.icon(
                             onPressed: () => _showRootCategories(all),
                             iconAlignment: IconAlignment.end,
-                            icon: const Icon(LucideIcons.chevronDown, size: 16),
+                            icon: const Icon(
+                              LucideIcons.chevronDown,
+                              size: 16,
+                            ),
                             label: const Text(
                               'الفئات',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                           const Spacer(),
@@ -504,57 +537,58 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                   if (children.isNotEmpty)
                     SliverToBoxAdapter(
                       child: SizedBox(
-                        height: 122,
-                        child: ListView.separated(
-                          reverse: true,
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 17),
-                          itemCount: children.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            final child = children[index];
-                            return InkWell(
-                              onTap: () => _openCategory(child),
-                              borderRadius: BorderRadius.circular(21),
-                              child: SizedBox(
-                                width: 86,
-                                child: Column(children: [
-                                  Container(
-                                    width: 80,
-                                    height: 80,
-                                    clipBehavior: Clip.antiAlias,
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.surface,
-                                      borderRadius: BorderRadius.circular(21),
+                        height: 52,
+                        child: Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: ListView.separated(
+                            reverse: true,
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.fromLTRB(17, 2, 17, 10),
+                            itemCount: children.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              final child = children[index];
+                              return Material(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? spikeDarkPanel
+                                    : const Color(0xFFF1F1F1),
+                                borderRadius: BorderRadius.circular(18),
+                                child: InkWell(
+                                  onTap: () => _openCategory(child),
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 9,
                                     ),
-                                    child: child.imageUrl == null
-                                        ? const Icon(LucideIcons.image)
-                                        : SpikeNetworkImage(
-                                            url: child.imageUrl,
-                                            width: 80,
-                                            height: 80,
-                                            fit: BoxFit.cover,
-                                          ),
+                                    child: Text(
+                                      child.name,
+                                      maxLines: 1,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                   ),
-                                  const SizedBox(height: 7),
-                                  Text(
-                                    child.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                  ),
-                                ]),
-                              ),
-                            );
-                          },
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
                   const SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(17, 20, 17, 12),
-                      child: Text('المنتجات', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        'المنتجات',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
                   if (_loading)
@@ -568,13 +602,16 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                     )
                   else if (visibleProducts.isEmpty)
                     const SliverToBoxAdapter(
-                      child: SpikeEmptyState(message: 'لا توجد منتجات مطابقة في هذه الفئة'),
+                      child: SpikeEmptyState(
+                        message: 'لا توجد منتجات مطابقة في هذه الفئة',
+                      ),
                     )
                   else
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(17, 0, 17, 18),
                       sliver: SliverGrid(
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           crossAxisSpacing: 10,
                           mainAxisSpacing: 18,
@@ -586,8 +623,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             return SpikeProductCard(
                               product: product,
                               isFavorite: favoriteIds.contains(product.id),
-                              onTap: () => context.push('/product/${product.id}'),
-                              onAdd: product.purchasable && product.cheapestVariant != null
+                              onTap: () =>
+                                  context.push('/product/${product.id}'),
+                              onAdd: product.purchasable &&
+                                      product.cheapestVariant != null
                                   ? () => _add(product)
                                   : null,
                               onFavorite: _favoriteBusy.contains(product.id)
@@ -595,7 +634,9 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                                   : () => _favorite(product),
                               onStore: product.storeId == null
                                   ? null
-                                  : () => context.push('/store/${product.storeId}'),
+                                  : () => context.push(
+                                        '/store/${product.storeId}',
+                                      ),
                             );
                           },
                           childCount: visibleProducts.length,
@@ -607,8 +648,11 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(17, 0, 17, 24),
                         child: OutlinedButton(
-                          onPressed: _loadingMore ? null : () => _load(reset: false),
-                          child: Text(_loadingMore ? 'جاري التحميل...' : 'عرض المزيد'),
+                          onPressed:
+                              _loadingMore ? null : () => _load(reset: false),
+                          child: Text(
+                            _loadingMore ? 'جاري التحميل...' : 'عرض المزيد',
+                          ),
                         ),
                       ),
                     ),
