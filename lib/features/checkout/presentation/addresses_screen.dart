@@ -486,16 +486,8 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                               )
                             : const Text(
                                 'حفظ العنوان',
-                                style: TextStyle(fontWeight: FontWeight.w700),
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                               ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 48,
-                      child: OutlinedButton(
-                        onPressed: busy ? null : () => context.pop(),
-                        child: const Text('إلغاء'),
                       ),
                     ),
                   ],
@@ -516,10 +508,10 @@ class _AddressHead extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        height: 60,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 17),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(17, 8, 17, 0),
+        child: SizedBox(
+          height: 60,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -545,7 +537,8 @@ class _AddressHead extends StatelessWidget {
                   ),
                 ),
               ),
-              if (action != null) Align(alignment: Alignment.centerLeft, child: action!),
+              if (action != null)
+                Align(alignment: Alignment.centerLeft, child: action!),
             ],
           ),
         ),
@@ -569,7 +562,7 @@ class _ReferenceField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        minHeight: 54,
+        constraints: const BoxConstraints(minHeight: 54),
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark
               ? const Color(0xFF1D1D1D)
