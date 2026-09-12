@@ -33,7 +33,10 @@ class CategoriesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(categoriesProvider);
+    // The customer web is the UI/UX source of truth. Use the same ordered
+    // category list that powers Home, then apply the exact web visibility
+    // rules for the "all categories" screen without a root-only filter.
+    final state = ref.watch(homeDataProvider);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final mutedIcon = Theme.of(context).colorScheme.onSurface.withValues(alpha: .24);
     return Scaffold(
@@ -60,21 +63,25 @@ class CategoriesScreen extends ConsumerWidget {
               loading: () => const SpikeLoading(),
               error: (e, _) => SpikeErrorState(
                 message: e.toString(),
-                onRetry: () => ref.invalidate(categoriesProvider),
+                onRetry: () => ref.invalidate(homeDataProvider),
               ),
-              data: (all) {
-                final roots = all.where((c) => c.isRoot).toList()
-                  ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-                return roots.isEmpty
-                    ? const SpikeEmptyState(message: 'لا توجد فئات رئيسية منشورة بعد')
+              data: (home) {
+                final visible = home.categories
+                    .where((c) =>
+                        c.enabled &&
+                        !c.showAsMore &&
+                        c.actionType != 'all_categories')
+                    .toList();
+                return visible.isEmpty
+                    ? const SpikeEmptyState(message: 'لا توجد فئات منشورة بعد')
                     : RefreshIndicator(
                         onRefresh: () async {
-                          ref.invalidate(categoriesProvider);
-                          await ref.read(categoriesProvider.future);
+                          ref.invalidate(homeDataProvider);
+                          await ref.read(homeDataProvider.future);
                         },
                         child: GridView.builder(
                           padding: const EdgeInsets.fromLTRB(17, 5, 17, 24),
-                          itemCount: roots.length,
+                          itemCount: visible.length,
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 4,
                             crossAxisSpacing: 11,
@@ -82,7 +89,7 @@ class CategoriesScreen extends ConsumerWidget {
                             mainAxisExtent: 124,
                           ),
                           itemBuilder: (context, i) {
-                            final c = roots[i];
+                            final c = visible[i];
                             return InkWell(
                               onTap: () => _openCategory(context, c),
                               borderRadius: BorderRadius.circular(21),
