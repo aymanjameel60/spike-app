@@ -16,6 +16,14 @@ class CategoriesScreen extends ConsumerWidget {
       context.go('/categories');
       return;
     }
+    if (category.actionType == 'offers') {
+      context.push('/offers');
+      return;
+    }
+    if (category.actionType == 'stores') {
+      context.push('/stores');
+      return;
+    }
     if (category.actionType == 'section' &&
         (category.actionTarget ?? '').isNotEmpty) {
       context.push('/section/${category.actionTarget}');
