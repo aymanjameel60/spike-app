@@ -37,6 +37,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     'transfer',
     'wallet',
     'spike_wallet',
+    'cod',
   };
 
   @override
@@ -96,7 +97,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           .where((method) => _supportedPaymentMethods.contains(method.method))
           .toList()
         ..sort((a, b) {
-          const order = {'transfer': 0, 'wallet': 1, 'spike_wallet': 2};
+          const order = {'transfer': 0, 'wallet': 1, 'spike_wallet': 2, 'cod': 3};
           return (order[a.method] ?? 99).compareTo(order[b.method] ?? 99);
         });
       electronicWallets = result[3] as List<ElectronicWalletModel>;
@@ -207,7 +208,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
       final remaining = double.tryParse('${plan?['remaining_amount'] ?? 0}') ?? 0;
       final usedSpike = double.tryParse('${plan?['spike_wallet_amount'] ?? 0}') ?? 0;
-      if (method == 'spike_wallet' && spikeFallbackMethod == null) {
+      if (method == 'cod') {
+        showSpikeToast(context, 'تم إنشاء الطلب. سيتم الدفع عند التسليم.');
+      } else if (method == 'spike_wallet' && spikeFallbackMethod == null) {
         showSpikeToast(context, 'تم الدفع من محفظة سبايك وإنشاء الطلب بنجاح');
       } else if (method == 'spike_wallet' && usedSpike > 0 && remaining > 0) {
         showSpikeToast(context, 'تم استخدام رصيد محفظة سبايك. أكمل المبلغ المتبقي وارفع السند من تفاصيل الطلب.');
@@ -385,6 +388,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                   ],
                 ],
+                if (payment?.method == 'cod' && hasAddress) ...[
+                  const SizedBox(height: 4),
+                  _PaymentNotice(
+                    icon: LucideIcons.banknote,
+                    title: 'الدفع عند التسليم',
+                    text: 'سيتم تحصيل قيمة الطلب عند استلامه. يمكنك متابعة حالة الطلب من صفحة طلباتي.',
+                    cardColor: cardColor,
+                  ),
+                ],
                 const SizedBox(height: 13),
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -482,13 +494,17 @@ class _PaymentChoice extends StatelessWidget {
       ? LucideIcons.landmark
       : method.method == 'wallet'
           ? LucideIcons.smartphone
-          : LucideIcons.walletCards;
+          : method.method == 'cod'
+              ? LucideIcons.banknote
+              : LucideIcons.walletCards;
 
   String get _subtitle => method.method == 'transfer'
       ? 'حوّل المبلغ وارفع السند من الطلب'
       : method.method == 'wallet'
           ? 'اختر محفظة وطريقة التنفيذ المتاحة'
-          : 'خصم مباشر، ويمكن إكمال الباقي بطريقة أخرى';
+          : method.method == 'cod'
+              ? 'ادفع قيمة الطلب عند الاستلام'
+              : 'خصم مباشر، ويمكن إكمال الباقي بطريقة أخرى';
 
   @override
   Widget build(BuildContext context) => InkWell(
