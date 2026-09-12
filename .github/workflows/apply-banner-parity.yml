@@ -1,0 +1,52 @@
+name: Apply banner parity
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-banner-parity.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch Flutter home banners
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/features/home/presentation/home_screen.dart')
+          s = p.read_text()
+
+          old = """class _BannerCarouselState extends State<_BannerCarousel> {\n  Timer? _timer;\n\n  @override\n  void initState() {\n    super.initState();\n    _timer = Timer.periodic(const Duration(seconds: 1), (_) {\n      if (mounted) setState(() {});\n    });\n  }\n\n  @override\n  void dispose() {\n    _timer?.cancel();\n    super.dispose();\n  }\n"""
+          new = """class _BannerCarouselState extends State<_BannerCarousel> {\n  Timer? _timer;\n  Timer? _autoplayTimer;\n\n  @override\n  void initState() {\n    super.initState();\n    _timer = Timer.periodic(const Duration(seconds: 1), (_) {\n      if (mounted) setState(() {});\n    });\n    _startAutoplay();\n  }\n\n  @override\n  void didUpdateWidget(covariant _BannerCarousel oldWidget) {\n    super.didUpdateWidget(oldWidget);\n    if (oldWidget.items.length != widget.items.length) {\n      _startAutoplay();\n    }\n  }\n\n  void _startAutoplay() {\n    _autoplayTimer?.cancel();\n    if (widget.items.length < 2) return;\n    _autoplayTimer = Timer.periodic(const Duration(seconds: 3), (_) {\n      if (!mounted || !widget.controller.hasClients || widget.items.length < 2) return;\n      final current = widget.controller.page?.round() ?? widget.index;\n      final next = (current + 1) % widget.items.length;\n      widget.controller.animateToPage(\n        next,\n        duration: const Duration(milliseconds: 420),\n        curve: Curves.easeInOut,\n      );\n    });\n  }\n\n  @override\n  void dispose() {\n    _timer?.cancel();\n    _autoplayTimer?.cancel();\n    super.dispose();\n  }\n"""
+          if old not in s:
+              raise SystemExit('banner state block not found')
+          s = s.replace(old, new, 1)
+
+          old_img = """                      CachedNetworkImage(\n                        imageUrl: item.imageUrl,\n                        width: double.infinity,\n                        height: 130,\n                        fit: BoxFit.cover,\n                        errorWidget: (_, __, ___) => Container(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .08)),\n                      ),\n"""
+          new_img = """                      CachedNetworkImage(\n                        imageUrl: item.imageUrl,\n                        width: double.infinity,\n                        height: 130,\n                        fit: BoxFit.cover,\n                        placeholder: (_, __) => const _BannerImagePlaceholder(),\n                        errorWidget: (_, __, ___) => const _BannerImagePlaceholder(),\n                      ),\n"""
+          if old_img not in s:
+              raise SystemExit('banner image block not found')
+          s = s.replace(old_img, new_img, 1)
+
+          marker = """class _BannerCarousel extends StatefulWidget {\n"""
+          placeholder = """class _BannerImagePlaceholder extends StatefulWidget {\n  const _BannerImagePlaceholder();\n\n  @override\n  State<_BannerImagePlaceholder> createState() => _BannerImagePlaceholderState();\n}\n\nclass _BannerImagePlaceholderState extends State<_BannerImagePlaceholder>\n    with SingleTickerProviderStateMixin {\n  late final AnimationController _controller;\n\n  @override\n  void initState() {\n    super.initState();\n    _controller = AnimationController(\n      vsync: this,\n      duration: const Duration(milliseconds: 1100),\n    )..repeat(reverse: true);\n  }\n\n  @override\n  void dispose() {\n    _controller.dispose();\n    super.dispose();\n  }\n\n  @override\n  Widget build(BuildContext context) => AnimatedBuilder(\n        animation: _controller,\n        builder: (context, _) {\n          final alpha = .05 + (_controller.value * .05);\n          return ColoredBox(\n            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: alpha),\n          );\n        },\n      );\n}\n\n"""
+          if marker not in s:
+              raise SystemExit('banner carousel marker not found')
+          s = s.replace(marker, placeholder + marker, 1)
+          p.write_text(s)
+          PY
+      - name: Commit banner parity
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/features/home/presentation/home_screen.dart
+          git commit -m "Match Flutter banner carousel to latest frontend" || exit 0
+          git push
