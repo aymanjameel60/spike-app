@@ -24,6 +24,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   static const _pageSize = 24;
   final _products = <ProductModel>[];
   final _favoriteBusy = <String>{};
+  final _scrollController = ScrollController();
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasNext = false;
@@ -35,7 +36,16 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load(reset: true));
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
+    super.dispose();
   }
 
   @override
@@ -45,6 +55,15 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
       _sort = 'relevance';
       _filter = 'all';
       _load(reset: true);
+    }
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients || _loading || _loadingMore || !_hasNext) {
+      return;
+    }
+    if (_scrollController.position.extentAfter < 500) {
+      _load(reset: false);
     }
   }
 
@@ -169,141 +188,53 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     );
   }
 
-  void _showRootCategories(List<CategoryModel> all) {
-    final roots = all.where((c) => c.enabled && c.isRoot).toList()
+  List<CategoryModel> _rootCategories(List<CategoryModel> all) {
+    return all.where((c) => c.enabled && c.isRoot).toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    showModalBottomSheet<void>(
+  }
+
+  Future<void> _showSort() async {
+    final options = <(String, String)>[
+      ('relevance', 'الأكثر صلة'),
+      ('price-low', 'السعر: من الأقل للأعلى'),
+      ('price-high', 'السعر: من الأعلى للأقل'),
+      ('rating', 'الأعلى تقييماً'),
+      ('discount', 'الأعلى خصماً'),
+    ];
+    await showModalBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(17, 12, 17, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 42,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(sheetContext).dividerColor,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const SizedBox(height: 14),
               Row(
                 children: [
                   const Expanded(
                     child: Text(
-                      'جميع الفئات',
+                      'الترتيب حسب',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(sheetContext),
-                    icon: const Icon(LucideIcons.x, size: 20),
-                  ),
+                  _closeButton(() => Navigator.pop(sheetContext)),
                 ],
               ),
               const SizedBox(height: 8),
-              Flexible(
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: .9,
-                  ),
-                  itemCount: roots.length,
-                  itemBuilder: (context, index) {
-                    final item = roots[index];
-                    return InkWell(
-                      onTap: () {
-                        Navigator.pop(sheetContext);
-                        if (item.id != widget.id) _openCategory(item);
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              width: double.infinity,
-                              clipBehavior: Clip.antiAlias,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(16),
-                                border: item.id == widget.id
-                                    ? Border.all(color: spikeRed, width: 1.5)
-                                    : null,
-                              ),
-                              child: item.imageUrl == null
-                                  ? const Icon(LucideIcons.image)
-                                  : SpikeNetworkImage(
-                                      url: item.imageUrl,
-                                      fit: BoxFit.cover,
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            item.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showSort() {
-    final options = <(String, String)>[
-      ('relevance', 'الأكثر صلة'),
-      ('price-low', 'السعر: الأقل أولاً'),
-      ('price-high', 'السعر: الأعلى أولاً'),
-      ('rating', 'الأعلى تقييمًا'),
-      ('discount', 'الأعلى خصمًا'),
-    ];
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(17, 12, 17, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'الترتيب',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(sheetContext),
-                    icon: const Icon(LucideIcons.x, size: 20),
-                  ),
-                ],
-              ),
               for (final option in options)
                 RadioListTile<String>(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
                   value: option.$1,
                   groupValue: _sort,
-                  title: Text(option.$2),
+                  title: Text(
+                    option.$2,
+                    style: const TextStyle(fontSize: 14),
+                  ),
                   onChanged: (value) {
                     if (value == null) return;
                     setState(() => _sort = value);
@@ -317,54 +248,128 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     );
   }
 
-  void _showFilter() {
+  Future<void> _showFilter() async {
     final options = <(String, String)>[
       ('all', 'كل المنتجات'),
       ('offers', 'العروض فقط'),
       ('rating4', '4 نجوم فأعلى'),
-      ('available', 'المتوفر حاليًا'),
+      ('available', 'المتوفر حالياً'),
     ];
-    showModalBottomSheet<void>(
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(17, 12, 17, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'الفلتر',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'فلترة المنتجات',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() => _filter = 'all');
+                          setSheetState(() {});
+                        },
+                        child: const Text(
+                          'مسح الكل',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      _closeButton(() => Navigator.pop(sheetContext)),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() => _filter = 'all');
-                      Navigator.pop(sheetContext);
-                    },
-                    child: const Text('مسح الكل'),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'عرض المنتجات',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(sheetContext),
-                    icon: const Icon(LucideIcons.x, size: 20),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.start,
+                    children: [
+                      for (final option in options)
+                        _filterChip(
+                          label: option.$2,
+                          selected: _filter == option.$1,
+                          onTap: () {
+                            setState(() => _filter = option.$1);
+                            Navigator.pop(sheetContext);
+                          },
+                        ),
+                    ],
                   ),
                 ],
               ),
-              for (final option in options)
-                RadioListTile<String>(
-                  value: option.$1,
-                  groupValue: _filter,
-                  title: Text(option.$2),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _filter = value);
-                    Navigator.pop(sheetContext);
-                  },
-                ),
-            ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _closeButton(VoidCallback onTap) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: dark ? Colors.white : Colors.white,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: const SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(LucideIcons.x, size: 19, color: Colors.black),
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: selected
+          ? (dark ? Colors.white : Colors.black)
+          : (dark ? spikeDarkPanel : const Color(0xFFF1F1F1)),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: selected
+                  ? (dark ? Colors.black : Colors.white)
+                  : Theme.of(context).colorScheme.onSurface,
+            ),
           ),
         ),
       ),
@@ -373,34 +378,132 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
   Widget _toolButton({
     required IconData icon,
-    required String label,
+    required String tooltip,
     required VoidCallback onTap,
   }) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: dark ? spikeDarkPanel : const Color(0xFFEDEDED),
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: onTap,
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: dark ? spikeDarkPanel : const Color(0xFFEDEDED),
         borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 15),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Icon(icon, size: 16),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _rootPicker(List<CategoryModel> all) {
+    final roots = _rootCategories(all);
+    if (roots.isEmpty) return const SizedBox.shrink();
+    return PopupMenuButton<String>(
+      tooltip: 'الفئات',
+      position: PopupMenuPosition.under,
+      constraints: const BoxConstraints(minWidth: 210, maxHeight: 320),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      onSelected: (id) {
+        if (id == widget.id) return;
+        final selected = roots.where((item) => item.id == id).firstOrNull;
+        if (selected != null) _openCategory(selected);
+      },
+      itemBuilder: (context) => [
+        for (final root in roots)
+          PopupMenuItem<String>(
+            value: root.id,
+            height: 42,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              decoration: BoxDecoration(
+                color: root.id == widget.id
+                    ? Theme.of(context).colorScheme.surfaceContainerHighest
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                root.name,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight:
+                      root.id == widget.id ? FontWeight.w700 : FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+      ],
+      child: const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'الفئات',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+            SizedBox(width: 6),
+            Icon(LucideIcons.chevronDown, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _productSkeletonGrid() {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 18),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 18,
+        childAspectRatio: .68,
+      ),
+      itemCount: 6,
+      itemBuilder: (context, index) {
+        final base = Theme.of(context).colorScheme.surfaceContainerHighest;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: base,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 12,
+              decoration: BoxDecoration(
+                color: base,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            const SizedBox(height: 7),
+            FractionallySizedBox(
+              widthFactor: .62,
+              alignment: Alignment.centerRight,
+              child: Container(
+                height: 10,
+                decoration: BoxDecoration(
+                  color: base,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -409,7 +512,16 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     final categories = ref.watch(categoriesProvider);
     final favoriteIds = ref.watch(wishlistIdsProvider).valueOrNull ?? <String>{};
     return categories.when(
-      loading: () => const Scaffold(body: SpikeLoading()),
+      loading: () => Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 60),
+              Expanded(child: _productSkeletonGrid()),
+            ],
+          ),
+        ),
+      ),
       error: (error, _) => Scaffold(
         body: SpikeErrorState(
           message: error.toString(),
@@ -446,12 +558,13 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                 await _load(reset: true);
               },
               child: CustomScrollView(
+                controller: _scrollController,
                 slivers: [
                   SliverToBoxAdapter(
                     child: SizedBox(
                       height: 60,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 17),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Row(
                           children: [
                             IconButton(
@@ -484,11 +597,11 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                   if (current.isRoot && current.bannerUrl != null)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(17, 4, 17, 14),
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(14),
                           child: AspectRatio(
-                            aspectRatio: 3.1,
+                            aspectRatio: 3,
                             child: SpikeNetworkImage(
                               url: current.bannerUrl,
                               width: double.infinity,
@@ -500,34 +613,20 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                     ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(17, 2, 17, 12),
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                       child: Row(
                         children: [
-                          TextButton.icon(
-                            onPressed: () => _showRootCategories(all),
-                            iconAlignment: IconAlignment.end,
-                            icon: const Icon(
-                              LucideIcons.chevronDown,
-                              size: 16,
-                            ),
-                            label: const Text(
-                              'الفئات',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
+                          _rootPicker(all),
                           const Spacer(),
                           _toolButton(
                             icon: LucideIcons.arrowUpDown,
-                            label: 'الترتيب',
+                            tooltip: 'الترتيب',
                             onTap: _showSort,
                           ),
-                          const SizedBox(width: 7),
+                          const SizedBox(width: 8),
                           _toolButton(
                             icon: LucideIcons.slidersHorizontal,
-                            label: 'الفلتر',
+                            tooltip: 'الفلتر',
                             onTap: _showFilter,
                           ),
                         ],
@@ -541,9 +640,8 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                         child: Directionality(
                           textDirection: TextDirection.rtl,
                           child: ListView.separated(
-                            reverse: true,
                             scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.fromLTRB(17, 2, 17, 10),
+                            padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
                             itemCount: children.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(width: 8),
@@ -558,10 +656,16 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                                 child: InkWell(
                                   onTap: () => _openCategory(child),
                                   borderRadius: BorderRadius.circular(18),
-                                  child: Padding(
+                                  child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 14,
                                       vertical: 9,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.black.withValues(alpha: .08),
+                                      ),
+                                      borderRadius: BorderRadius.circular(18),
                                     ),
                                     child: Text(
                                       child.name,
@@ -579,20 +683,8 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                         ),
                       ),
                     ),
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(17, 20, 17, 12),
-                      child: Text(
-                        'المنتجات',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
                   if (_loading)
-                    const SliverToBoxAdapter(child: SpikeLoading())
+                    SliverToBoxAdapter(child: _productSkeletonGrid())
                   else if (_error != null)
                     SliverToBoxAdapter(
                       child: SpikeErrorState(
@@ -602,13 +694,16 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                     )
                   else if (visibleProducts.isEmpty)
                     const SliverToBoxAdapter(
-                      child: SpikeEmptyState(
-                        message: 'لا توجد منتجات مطابقة في هذه الفئة',
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 24),
+                        child: SpikeEmptyState(
+                          message: 'لا توجد منتجات في هذه الفئة حالياً',
+                        ),
                       ),
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(17, 0, 17, 18),
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
                       sliver: SliverGrid(
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
@@ -643,15 +738,15 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                         ),
                       ),
                     ),
-                  if (_hasNext)
-                    SliverToBoxAdapter(
+                  if (_loadingMore)
+                    const SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(17, 0, 17, 24),
-                        child: OutlinedButton(
-                          onPressed:
-                              _loadingMore ? null : () => _load(reset: false),
-                          child: Text(
-                            _loadingMore ? 'جاري التحميل...' : 'عرض المزيد',
+                        padding: EdgeInsets.only(bottom: 24),
+                        child: Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         ),
                       ),
