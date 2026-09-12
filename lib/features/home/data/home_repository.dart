@@ -14,6 +14,7 @@ import '../../../models/store.dart';
 class HomeData {
   const HomeData({
     required this.categories,
+    required this.allCategories,
     required this.products,
     required this.bestSellers,
     required this.stores,
@@ -23,6 +24,7 @@ class HomeData {
   });
 
   final List<CategoryModel> categories;
+  final List<CategoryModel> allCategories;
   final List<ProductModel> products;
   final List<ProductModel> bestSellers;
   final List<StoreModel> stores;
@@ -139,16 +141,29 @@ class HomeRepository {
     final collectionsRaw = results[3]['collections'] as List? ?? const [];
     final home = results[4];
 
-    // Match the customer web "All categories" contract exactly: keep the
-    // backend order and exclude navigation-only "more/all categories" items.
-    final categories = categoriesRaw
+    // Keep the backend order as the only category ordering source. The
+    // configurable "more / all categories" record is a navigation tile: it
+    // is pinned to Home slot 8, while the All Categories screen receives only
+    // real categories and therefore never renders that navigation-only tile.
+    final enabledCategories = categoriesRaw
         .whereType<Map>()
         .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
-        .where((e) =>
-            e.enabled &&
-            !e.showAsMore &&
-            e.actionType != 'all_categories')
+        .where((e) => e.enabled)
         .toList();
+    final allCategories = enabledCategories
+        .where((e) => !e.showAsMore && e.actionType != 'all_categories')
+        .toList();
+    CategoryModel? moreCategory;
+    for (final category in enabledCategories) {
+      if (category.showAsMore || category.actionType == 'all_categories') {
+        moreCategory = category;
+        break;
+      }
+    }
+    final categories = <CategoryModel>[
+      ...allCategories.take(moreCategory == null ? 8 : 7),
+      if (moreCategory != null) moreCategory,
+    ];
 
     final products = productsRaw
         .whereType<Map>()
@@ -186,6 +201,7 @@ class HomeRepository {
 
     return HomeData(
       categories: categories,
+      allCategories: allCategories,
       products: products,
       bestSellers: bestSellers,
       stores: stores,
