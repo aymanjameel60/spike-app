@@ -1127,6 +1127,7 @@ class _StoresStrip extends StatelessWidget {
                             ),
                           ),
                         ),
+                      ),
               ),
             ),
           );
