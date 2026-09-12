@@ -41,6 +41,45 @@ class HomeRepository {
 
   static const _cachePrefix = 'spike_home_cache_v1_';
 
+  List<CategoryModel> _orderCategoriesLikeAdmin(List<CategoryModel> rows) {
+    final originalIndex = <String, int>{};
+    for (var i = 0; i < rows.length; i++) {
+      originalIndex[rows[i].id] = i;
+    }
+
+    final ids = rows.map((e) => e.id).toSet();
+    final byParent = <String, List<CategoryModel>>{};
+    for (final row in rows) {
+      final rawParent = row.parentId ?? '';
+      final parent = rawParent.isNotEmpty && ids.contains(rawParent) ? rawParent : '';
+      byParent.putIfAbsent(parent, () => <CategoryModel>[]).add(row);
+    }
+
+    for (final bucket in byParent.values) {
+      bucket.sort((a, b) {
+        final bySort = a.sortOrder.compareTo(b.sortOrder);
+        if (bySort != 0) return bySort;
+        return (originalIndex[a.id] ?? 0).compareTo(originalIndex[b.id] ?? 0);
+      });
+    }
+
+    final ordered = <CategoryModel>[];
+    final seen = <String>{};
+    void walk(String parent) {
+      for (final row in byParent[parent] ?? const <CategoryModel>[]) {
+        if (!seen.add(row.id)) continue;
+        ordered.add(row);
+        walk(row.id);
+      }
+    }
+
+    walk('');
+    for (final row in rows) {
+      if (seen.add(row.id)) ordered.add(row);
+    }
+    return ordered;
+  }
+
   Future<Map<String, dynamic>> _get(
     String key,
     String path, {
@@ -141,21 +180,27 @@ class HomeRepository {
     final collectionsRaw = results[3]['collections'] as List? ?? const [];
     final home = results[4];
 
-    // Keep the backend order as the only category ordering source. The
-    // configurable "more / all categories" record is a navigation tile: it
-    // is pinned to Home slot 8, while the All Categories screen receives only
-    // real categories and therefore never renders that navigation-only tile.
-    final enabledCategories = categoriesRaw
-        .whereType<Map>()
-        .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
-        .where((e) => e.enabled)
-        .toList();
+    final enabledCategories = _orderCategoriesLikeAdmin(
+      categoriesRaw
+          .whereType<Map>()
+          .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
+          .where((e) => e.enabled)
+          .toList(),
+    );
     final allCategories = enabledCategories
-        .where((e) => !e.showAsMore && e.actionType != 'all_categories')
+        .where((e) =>
+            !e.showAsMore &&
+            e.actionType != 'all_categories' &&
+            e.name.trim() != 'المزيد' &&
+            e.name.trim() != 'كل الفئات')
         .toList();
     CategoryModel? moreCategory;
     for (final category in enabledCategories) {
-      if (category.showAsMore || category.actionType == 'all_categories') {
+      final name = category.name.trim();
+      if (category.showAsMore ||
+          category.actionType == 'all_categories' ||
+          name == 'المزيد' ||
+          name == 'كل الفئات') {
         moreCategory = category;
         break;
       }
