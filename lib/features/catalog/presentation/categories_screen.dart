@@ -33,7 +33,7 @@ class CategoriesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(homeDataProvider);
+    final state = ref.watch(categoriesProvider);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final mutedIcon = Theme.of(context).colorScheme.onSurface.withValues(alpha: .24);
     return Scaffold(
@@ -60,17 +60,17 @@ class CategoriesScreen extends ConsumerWidget {
               loading: () => const SpikeLoading(),
               error: (e, _) => SpikeErrorState(
                 message: e.toString(),
-                onRetry: () => ref.invalidate(homeDataProvider),
+                onRetry: () => ref.invalidate(categoriesProvider),
               ),
-              data: (data) {
-                final roots = data.categories.where((c) => c.isRoot).toList()
+              data: (all) {
+                final roots = all.where((c) => c.isRoot).toList()
                   ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
                 return roots.isEmpty
                     ? const SpikeEmptyState(message: 'لا توجد فئات رئيسية منشورة بعد')
                     : RefreshIndicator(
                         onRefresh: () async {
-                          ref.invalidate(homeDataProvider);
-                          await ref.read(homeDataProvider.future);
+                          ref.invalidate(categoriesProvider);
+                          await ref.read(categoriesProvider.future);
                         },
                         child: GridView.builder(
                           padding: const EdgeInsets.fromLTRB(17, 5, 17, 24),
