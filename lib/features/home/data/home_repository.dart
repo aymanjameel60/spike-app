@@ -159,10 +159,14 @@ class HomeRepository {
     }
     // Transitional compatibility with an older backend that still returned the
     // explicit navigation tile inside categories. Do not infer it by its name.
-    moreCategory ??= normalizedCategories.cast<CategoryModel?>().firstWhere(
-          (e) => e != null && (e.showAsMore || e.actionType == 'all_categories'),
-          orElse: () => null,
-        );
+    if (moreCategory == null) {
+      for (final category in normalizedCategories) {
+        if (category.showAsMore || category.actionType == 'all_categories') {
+          moreCategory = category;
+          break;
+        }
+      }
+    }
 
     final allCategories = normalizedCategories
         .where((e) => !e.showAsMore && e.actionType != 'all_categories')
