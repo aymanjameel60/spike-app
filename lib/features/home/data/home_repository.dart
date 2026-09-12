@@ -106,6 +106,17 @@ class HomeRepository {
         .toList();
   }
 
+  Future<HomeSectionModel> section(String id) async {
+    final data = await _api.get('/home-sections/$id');
+    final raw = data['section'];
+    if (raw is! Map) {
+      throw const FormatException('استجابة القسم من الخادم غير صالحة');
+    }
+    final section = Map<String, dynamic>.from(raw);
+    section['items'] = data['items'] ?? section['items'] ?? const [];
+    return HomeSectionModel.fromJson(section);
+  }
+
   Future<HomeData> load() async {
     final results = await Future.wait<Map<String, dynamic>>([
       _get('categories', '/categories'),
