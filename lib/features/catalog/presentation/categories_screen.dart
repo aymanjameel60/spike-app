@@ -12,27 +12,23 @@ class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
 
   void _openCategory(BuildContext context, CategoryModel category) {
-    if (category.opensProducts) {
-      context.push(
-        Uri(
-          path: '/products',
-          queryParameters: {
-            'category': category.id,
-            'title': category.name,
-          },
-        ).toString(),
-      );
-      return;
-    }
-
     if (category.actionType == 'all_categories' || category.showAsMore) {
       context.go('/categories');
       return;
     }
-
-    if (category.actionType == 'section') {
-      context.go('/');
+    if (category.actionType == 'section' &&
+        (category.actionTarget ?? '').isNotEmpty) {
+      context.push('/section/${category.actionTarget}');
+      return;
     }
+    if (category.effectiveCollectionId != null) {
+      context.push(
+        '/products?collection=${Uri.encodeComponent(category.effectiveCollectionId!)}&title=${Uri.encodeComponent(category.name)}',
+      );
+      return;
+    }
+    final id = category.effectiveCategoryId ?? category.id;
+    context.push('/category/${Uri.encodeComponent(id)}');
   }
 
   @override
@@ -66,58 +62,62 @@ class CategoriesScreen extends ConsumerWidget {
                 message: e.toString(),
                 onRetry: () => ref.invalidate(homeDataProvider),
               ),
-              data: (data) => data.categories.isEmpty
-                  ? const SpikeEmptyState(message: 'لا توجد أقسام منشورة بعد')
-                  : RefreshIndicator(
-                      onRefresh: () async {
-                        ref.invalidate(homeDataProvider);
-                        await ref.read(homeDataProvider.future);
-                      },
-                      child: GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(17, 5, 17, 24),
-                        itemCount: data.categories.length,
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          crossAxisSpacing: 11,
-                          mainAxisSpacing: 20,
-                          mainAxisExtent: 124,
-                        ),
-                        itemBuilder: (context, i) {
-                          final c = data.categories[i];
-                          return InkWell(
-                            onTap: () => _openCategory(context, c),
-                            borderRadius: BorderRadius.circular(21),
-                            child: Column(children: [
-                              Container(
-                                width: 81,
-                                height: 81,
-                                clipBehavior: Clip.antiAlias,
-                                decoration: BoxDecoration(
-                                  color: dark ? spikeDarkPanel : spikePanel,
-                                  borderRadius: BorderRadius.circular(21),
-                                ),
-                                child: c.imageUrl == null
-                                    ? Icon(LucideIcons.image, color: mutedIcon)
-                                    : SpikeNetworkImage(
-                                        url: c.imageUrl,
-                                        fit: BoxFit.cover,
-                                        width: 81,
-                                        height: 81,
-                                      ),
-                              ),
-                              const SizedBox(height: 9),
-                              Text(
-                                c.name,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 1.32),
-                              ),
-                            ]),
-                          );
+              data: (data) {
+                final roots = data.categories.where((c) => c.isRoot).toList()
+                  ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+                return roots.isEmpty
+                    ? const SpikeEmptyState(message: 'لا توجد فئات رئيسية منشورة بعد')
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          ref.invalidate(homeDataProvider);
+                          await ref.read(homeDataProvider.future);
                         },
-                      ),
-                    ),
+                        child: GridView.builder(
+                          padding: const EdgeInsets.fromLTRB(17, 5, 17, 24),
+                          itemCount: roots.length,
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 4,
+                            crossAxisSpacing: 11,
+                            mainAxisSpacing: 20,
+                            mainAxisExtent: 124,
+                          ),
+                          itemBuilder: (context, i) {
+                            final c = roots[i];
+                            return InkWell(
+                              onTap: () => _openCategory(context, c),
+                              borderRadius: BorderRadius.circular(21),
+                              child: Column(children: [
+                                Container(
+                                  width: 81,
+                                  height: 81,
+                                  clipBehavior: Clip.antiAlias,
+                                  decoration: BoxDecoration(
+                                    color: dark ? spikeDarkPanel : spikePanel,
+                                    borderRadius: BorderRadius.circular(21),
+                                  ),
+                                  child: c.imageUrl == null
+                                      ? Icon(LucideIcons.image, color: mutedIcon)
+                                      : SpikeNetworkImage(
+                                          url: c.imageUrl,
+                                          fit: BoxFit.cover,
+                                          width: 81,
+                                          height: 81,
+                                        ),
+                                ),
+                                const SizedBox(height: 9),
+                                Text(
+                                  c.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, height: 1.32),
+                                ),
+                              ]),
+                            );
+                          },
+                        ),
+                      );
+              },
             ),
           ),
         ]),
