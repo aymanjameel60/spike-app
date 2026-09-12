@@ -435,6 +435,44 @@ class _BannerPlaceholder extends StatelessWidget {
   );
 }
 
+class _BannerImagePlaceholder extends StatefulWidget {
+  const _BannerImagePlaceholder();
+
+  @override
+  State<_BannerImagePlaceholder> createState() => _BannerImagePlaceholderState();
+}
+
+class _BannerImagePlaceholderState extends State<_BannerImagePlaceholder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final alpha = .05 + (_controller.value * .05);
+          return ColoredBox(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: alpha),
+          );
+        },
+      );
+}
+
 class _BannerCarousel extends StatefulWidget {
   const _BannerCarousel({required this.items, required this.controller, required this.index, required this.onPageChanged, required this.onTap});
 
@@ -450,6 +488,7 @@ class _BannerCarousel extends StatefulWidget {
 
 class _BannerCarouselState extends State<_BannerCarousel> {
   Timer? _timer;
+  Timer? _autoplayTimer;
 
   @override
   void initState() {
@@ -457,11 +496,36 @@ class _BannerCarouselState extends State<_BannerCarousel> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
+    _startAutoplay();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BannerCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.items.length != widget.items.length) {
+      _startAutoplay();
+    }
+  }
+
+  void _startAutoplay() {
+    _autoplayTimer?.cancel();
+    if (widget.items.length < 2) return;
+    _autoplayTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !widget.controller.hasClients || widget.items.length < 2) return;
+      final current = widget.controller.page?.round() ?? widget.index;
+      final next = (current + 1) % widget.items.length;
+      widget.controller.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _autoplayTimer?.cancel();
     super.dispose();
   }
 
@@ -499,7 +563,8 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                         width: double.infinity,
                         height: 130,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .08)),
+                        placeholder: (_, __) => const _BannerImagePlaceholder(),
+                        errorWidget: (_, __, ___) => const _BannerImagePlaceholder(),
                       ),
                       if (remaining.isNotEmpty)
                         Positioned(
