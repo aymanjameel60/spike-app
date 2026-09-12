@@ -5,6 +5,9 @@ class CategoryModel {
     required this.id,
     required this.name,
     this.imageUrl,
+    this.parentId,
+    this.parentName,
+    this.hasChildren = false,
     this.enabled = true,
     this.sortOrder = 0,
     this.actionType = 'category',
@@ -15,11 +18,16 @@ class CategoryModel {
   final String id;
   final String name;
   final String? imageUrl;
+  final String? parentId;
+  final String? parentName;
+  final bool hasChildren;
   final bool enabled;
   final int sortOrder;
   final String actionType;
   final String? actionTarget;
   final bool showAsMore;
+
+  bool get isRoot => parentId == null || parentId!.isEmpty;
 
   String? get effectiveCategoryId {
     if (actionType != 'category') return null;
@@ -40,11 +48,17 @@ class CategoryModel {
     final resolved = ApiConfig.resolveMedia('${j['image_url'] ?? ''}');
     final rawActionType = '${j['action_type'] ?? 'category'}'.trim();
     final rawActionTarget = '${j['action_target'] ?? ''}'.trim();
+    final rawParentId = '${j['parent_id'] ?? ''}'.trim();
+    final rawParentName = '${j['parent_name'] ?? ''}'.trim();
 
     return CategoryModel(
       id: '${j['id'] ?? ''}',
       name: '${j['name'] ?? ''}',
       imageUrl: resolved.isEmpty ? null : resolved,
+      parentId: rawParentId.isEmpty ? null : rawParentId,
+      parentName: rawParentName.isEmpty ? null : rawParentName,
+      hasChildren: j['has_children'] == true ||
+          (int.tryParse('${j['child_count'] ?? 0}') ?? 0) > 0,
       enabled: j['enabled'] != false,
       sortOrder: int.tryParse('${j['sort_order'] ?? 0}') ?? 0,
       actionType: rawActionType.isEmpty ? 'category' : rawActionType,
