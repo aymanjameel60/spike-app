@@ -65,7 +65,7 @@ class _DynamicHomeSectionsState extends ConsumerState<DynamicHomeSections> {
     }
   }
 
-  void _showAll(HomeSectionModel section) {
+  void _openSectionContent(HomeSectionModel section) {
     final reference = section.referenceId;
     switch (section.contentType) {
       case 'stores':
@@ -92,6 +92,36 @@ class _DynamicHomeSectionsState extends ConsumerState<DynamicHomeSections> {
     } else {
       context.push('/products');
     }
+  }
+
+  void _showAll(HomeSectionModel section) {
+    final type = section.showAllTargetType;
+    final id = section.showAllTargetId;
+    if (type == 'category' && id != null) {
+      context.push('/products?category=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(section.title)}');
+      return;
+    }
+    if (type == 'collection' && id != null) {
+      context.push('/products?collection=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(section.title)}');
+      return;
+    }
+    if (type == 'store' && id != null) {
+      context.push('/store/$id');
+      return;
+    }
+    if (type == 'offers') {
+      context.push('/offers');
+      return;
+    }
+    if (type == 'categories') {
+      context.push('/categories');
+      return;
+    }
+    if (type == 'stores') {
+      context.push('/stores');
+      return;
+    }
+    _openSectionContent(section);
   }
 
   @override
