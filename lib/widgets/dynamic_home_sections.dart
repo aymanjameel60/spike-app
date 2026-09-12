@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../app/providers.dart';
-import '../core/theme.dart';
+import '../core/widgets/async_state_widgets.dart';
 import '../models/category.dart';
 import '../models/collection.dart';
 import '../models/home_section.dart';
@@ -33,17 +33,9 @@ class _DynamicHomeSectionsState extends ConsumerState<DynamicHomeSections> {
             product: product,
           );
       ref.invalidate(cartCountProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تمت إضافة المنتج إلى السلة')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
+      if (mounted) showSpikeToast(context, 'تمت إضافة المنتج إلى السلة');
+    } catch (error) {
+      if (mounted) showSpikeToast(context, error.toString());
     }
   }
 
@@ -54,7 +46,9 @@ class _DynamicHomeSectionsState extends ConsumerState<DynamicHomeSections> {
     final active = current.contains(product.id);
     try {
       if (active) {
-        await ref.read(engagementRepositoryProvider).removeWishlist(product.id);
+        await ref
+            .read(engagementRepositoryProvider)
+            .removeWishlist(product.id);
       } else {
         await ref.read(engagementRepositoryProvider).addWishlist(product.id);
       }
@@ -62,35 +56,6 @@ class _DynamicHomeSectionsState extends ConsumerState<DynamicHomeSections> {
       ref.invalidate(favoritesProvider);
     } finally {
       if (mounted) setState(() => _favoriteBusy.remove(product.id));
-    }
-  }
-
-  void _openSectionContent(HomeSectionModel section) {
-    final reference = section.referenceId;
-    switch (section.contentType) {
-      case 'stores':
-        context.push('/stores');
-        return;
-      case 'categories':
-        context.push('/categories');
-        return;
-      case 'collections':
-        context.push('/collections');
-        return;
-      default:
-        break;
-    }
-
-    if (section.sourceType == 'category' && reference != null) {
-      context.push('/products?category=${Uri.encodeComponent(reference)}&title=${Uri.encodeComponent(section.title)}');
-    } else if (section.sourceType == 'store' && reference != null) {
-      context.push('/store/$reference');
-    } else if (section.sourceType == 'collection' && reference != null) {
-      context.push('/products?collection=${Uri.encodeComponent(reference)}&title=${Uri.encodeComponent(section.title)}');
-    } else if (section.sourceType == 'discounts') {
-      context.push('/offers');
-    } else {
-      context.push('/products');
     }
   }
 
@@ -102,11 +67,13 @@ class _DynamicHomeSectionsState extends ConsumerState<DynamicHomeSections> {
       return;
     }
     if (type == 'category' && id != null) {
-      context.push('/products?category=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(section.title)}');
+      context.push('/category/${Uri.encodeComponent(id)}');
       return;
     }
     if (type == 'collection' && id != null) {
-      context.push('/products?collection=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(section.title)}');
+      context.push(
+        '/products?collection=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(section.title)}',
+      );
       return;
     }
     if (type == 'store' && id != null) {
@@ -125,7 +92,7 @@ class _DynamicHomeSectionsState extends ConsumerState<DynamicHomeSections> {
       context.push('/stores');
       return;
     }
-    _openSectionContent(section);
+    context.push('/section/${section.id}');
   }
 
   @override
@@ -133,27 +100,27 @@ class _DynamicHomeSectionsState extends ConsumerState<DynamicHomeSections> {
     final favorites = ref.watch(wishlistIdsProvider).valueOrNull ?? <String>{};
     return Column(
       children: [
-        for (final section in widget.sections) ...[
-          const SizedBox(height: 32),
+        for (var index = 0; index < widget.sections.length; index++) ...[
+          if (index > 0) const SizedBox(height: 18),
           _SectionTitle(
-            title: section.title,
-            showAll: section.showAll && section.items.isNotEmpty,
-            onShowAll: () => _showAll(section),
+            title: widget.sections[index].title,
+            showAll: widget.sections[index].showAll,
+            onShowAll: () => _showAll(widget.sections[index]),
           ),
-          if (section.contentType == 'products')
+          if (widget.sections[index].contentType == 'products')
             _ProductsStrip(
-              items: section.items,
+              items: widget.sections[index].items,
               favorites: favorites,
               favoriteBusy: _favoriteBusy,
               onAdd: _add,
               onFavorite: _toggleFavorite,
             )
-          else if (section.contentType == 'stores')
-            _StoresStrip(items: section.items)
-          else if (section.contentType == 'categories')
-            _CategoriesStrip(items: section.items)
-          else if (section.contentType == 'collections')
-            _CollectionsStrip(items: section.items),
+          else if (widget.sections[index].contentType == 'stores')
+            _StoresStrip(items: widget.sections[index].items)
+          else if (widget.sections[index].contentType == 'categories')
+            _CategoriesStrip(items: widget.sections[index].items)
+          else if (widget.sections[index].contentType == 'collections')
+            _CollectionsStrip(items: widget.sections[index].items),
         ],
       ],
     );
@@ -161,7 +128,11 @@ class _DynamicHomeSectionsState extends ConsumerState<DynamicHomeSections> {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.showAll, this.onShowAll});
+  const _SectionTitle({
+    required this.title,
+    required this.showAll,
+    this.onShowAll,
+  });
 
   final String title;
   final bool showAll;
@@ -180,14 +151,25 @@ class _SectionTitle extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               if (showAll)
                 TextButton(
-                  style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  ),
                   onPressed: onShowAll,
-                  child: const Text('عرض الكل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  child: const Text(
+                    'عرض الكل',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -213,24 +195,31 @@ class _ProductsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final products = items.map(ProductModel.fromJson).toList();
-    if (products.isEmpty) return const SizedBox.shrink();
+    if (products.isEmpty) {
+      return const SpikeEmptyState(message: 'لا توجد عناصر في هذا القسم');
+    }
     return SizedBox(
       height: 246,
       child: ListView.separated(
-        reverse: true,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 17),
         itemCount: products.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, i) {
-          final product = products[i];
+        itemBuilder: (context, index) {
+          final product = products[index];
           return SpikeProductCard(
             product: product,
             isFavorite: favorites.contains(product.id),
             onTap: () => context.push('/product/${product.id}'),
-            onAdd: !product.purchasable || product.cheapestVariant == null ? null : () => onAdd(product),
-            onFavorite: favoriteBusy.contains(product.id) ? null : () => onFavorite(product),
-            onStore: product.storeId == null ? null : () => context.push('/store/${product.storeId}'),
+            onAdd: !product.purchasable || product.cheapestVariant == null
+                ? null
+                : () => onAdd(product),
+            onFavorite: favoriteBusy.contains(product.id)
+                ? null
+                : () => onFavorite(product),
+            onStore: product.storeId == null
+                ? null
+                : () => context.push('/store/${product.storeId}'),
           );
         },
       ),
@@ -240,44 +229,62 @@ class _ProductsStrip extends StatelessWidget {
 
 class _StoresStrip extends StatelessWidget {
   const _StoresStrip({required this.items});
+
   final List<Map<String, dynamic>> items;
 
   @override
   Widget build(BuildContext context) {
     final stores = items.map(StoreModel.fromJson).toList();
-    if (stores.isEmpty) return const SizedBox.shrink();
-    final dark = Theme.of(context).brightness == Brightness.dark;
+    if (stores.isEmpty) {
+      return const SpikeEmptyState(message: 'لا توجد متاجر');
+    }
     return SizedBox(
       height: 69,
       child: ListView.separated(
-        reverse: true,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 17),
         itemCount: stores.length,
         separatorBuilder: (_, __) => const SizedBox(width: 11),
-        itemBuilder: (context, i) {
-          final store = stores[i];
+        itemBuilder: (context, index) {
+          final store = stores[index];
           return InkWell(
             onTap: () => context.push('/store/${store.id}'),
-            borderRadius: BorderRadius.circular(22),
-            child: Container(
-              width: 154,
-              height: 69,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: dark ? spikeDarkPanel : const Color(0xFFE9E9E9),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: store.logoUrl == null
-                  ? Text(store.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))
-                  : Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: CachedNetworkImage(
+            borderRadius: BorderRadius.circular(25),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(25),
+              child: SizedBox(
+                width: 153,
+                height: 69,
+                child: store.logoUrl == null
+                    ? Center(
+                        child: Text(
+                          store.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      )
+                    : CachedNetworkImage(
                         imageUrl: store.logoUrl!,
-                        fit: BoxFit.contain,
-                        errorWidget: (_, __, ___) => Text(store.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                        fit: BoxFit.cover,
+                        width: 153,
+                        height: 69,
+                        errorWidget: (_, __, ___) => Center(
+                          child: Text(
+                            store.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+              ),
             ),
           );
         },
@@ -288,32 +295,54 @@ class _StoresStrip extends StatelessWidget {
 
 class _CategoriesStrip extends StatelessWidget {
   const _CategoriesStrip({required this.items});
+
   final List<Map<String, dynamic>> items;
 
   @override
   Widget build(BuildContext context) {
     final categories = items.map(CategoryModel.fromJson).toList();
-    if (categories.isEmpty) return const SizedBox.shrink();
+    if (categories.isEmpty) {
+      return const SpikeEmptyState(message: 'لا توجد فئات');
+    }
     return SizedBox(
-      height: 120,
+      height: 118,
       child: ListView.separated(
-        reverse: true,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 17),
         itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, i) {
-          final category = categories[i];
+        separatorBuilder: (_, __) => const SizedBox(width: 11),
+        itemBuilder: (context, index) {
+          final category = categories[index];
           return InkWell(
-            onTap: () => context.push('/products?category=${Uri.encodeComponent(category.id)}&title=${Uri.encodeComponent(category.name)}'),
+            onTap: () {
+              if (category.showAsMore || category.actionType == 'all_categories') {
+                context.push('/categories');
+                return;
+              }
+              if (category.actionType == 'section' &&
+                  (category.actionTarget ?? '').isNotEmpty) {
+                context.push('/section/${category.actionTarget}');
+                return;
+              }
+              if (category.actionType == 'collection' &&
+                  (category.actionTarget ?? '').isNotEmpty) {
+                context.push(
+                  '/products?collection=${Uri.encodeComponent(category.actionTarget!)}&title=${Uri.encodeComponent(category.name)}',
+                );
+                return;
+              }
+              context.push(
+                '/category/${Uri.encodeComponent(category.effectiveCategoryId ?? category.id)}',
+              );
+            },
             borderRadius: BorderRadius.circular(21),
             child: SizedBox(
-              width: 86,
+              width: 81,
               child: Column(
                 children: [
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 81,
+                    height: 81,
                     clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
@@ -324,11 +353,22 @@ class _CategoriesStrip extends StatelessWidget {
                         : CachedNetworkImage(
                             imageUrl: category.imageUrl!,
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => const Icon(LucideIcons.image),
+                            errorWidget: (_, __, ___) =>
+                                const Icon(LucideIcons.image),
                           ),
                   ),
                   const SizedBox(height: 7),
-                  Text(category.name, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text(
+                    category.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -341,22 +381,25 @@ class _CategoriesStrip extends StatelessWidget {
 
 class _CollectionsStrip extends StatelessWidget {
   const _CollectionsStrip({required this.items});
+
   final List<Map<String, dynamic>> items;
 
   @override
   Widget build(BuildContext context) {
-    final collections = items.map(CollectionModel.fromJson).toList();
-    if (collections.isEmpty) return const SizedBox.shrink();
+    final collections = items.map(CollectionModel.fromJson).toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    if (collections.isEmpty) {
+      return const SpikeEmptyState(message: 'لا توجد مجموعات');
+    }
     return SizedBox(
       height: 113,
       child: ListView.separated(
-        reverse: true,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(17, 4, 17, 8),
         itemCount: collections.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, i) {
-          final collection = collections[i];
+        itemBuilder: (context, index) {
+          final collection = collections[index];
           return GestureDetector(
             onTap: () {
               final type = (collection.destinationType ?? '').toLowerCase();
@@ -365,22 +408,32 @@ class _CollectionsStrip extends StatelessWidget {
               if (type == 'product') {
                 context.push('/product/$id');
               } else if (type == 'category') {
-                context.push('/products?category=${Uri.encodeComponent(id)}&title=${Uri.encodeComponent(collection.name)}');
+                context.push('/category/${Uri.encodeComponent(id)}');
               } else if (type == 'store') {
                 context.push('/store/$id');
               }
             },
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(12),
               child: SizedBox(
                 width: 153,
                 height: 101,
                 child: collection.imageUrl == null
-                    ? Container(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .08))
+                    ? Container(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: .08),
+                      )
                     : CachedNetworkImage(
                         imageUrl: collection.imageUrl!,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .08)),
+                        errorWidget: (_, __, ___) => Container(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: .08),
+                        ),
                       ),
               ),
             ),
