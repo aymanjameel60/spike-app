@@ -15,6 +15,7 @@ import '../features/engagement/presentation/share_win_screen.dart';
 import '../features/engagement/presentation/support_chat_screen.dart';
 import '../features/favorites/presentation/favorites_screen.dart';
 import '../features/home/presentation/home_screen.dart';
+import '../features/home/presentation/home_section_screen.dart';
 import '../features/offers/presentation/offers_screen.dart';
 import '../features/orders/presentation/orders_screen.dart';
 import '../features/orders/presentation/returns_refunds_screen.dart';
@@ -78,6 +79,13 @@ final appRouter = GoRouter(
         ),
         GoRoute(path: '/categories', pageBuilder: (_, state) => _page(state, const CategoriesScreen())),
         GoRoute(path: '/stores', pageBuilder: (_, state) => _page(state, const StoresScreen())),
+        GoRoute(
+          path: '/section/:id',
+          pageBuilder: (_, state) => _page(
+            state,
+            HomeSectionScreen(id: state.pathParameters['id']!),
+          ),
+        ),
         GoRoute(
           path: '/store/:id',
           pageBuilder: (_, state) => _page(
