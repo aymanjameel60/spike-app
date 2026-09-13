@@ -71,9 +71,12 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
     if (const [
       '/profile',
+      '/login',
+      '/signup',
       '/personal-data',
       '/privacy',
       '/settings',
+      '/delete-account',
       '/favorites',
       '/orders',
       '/order/',
