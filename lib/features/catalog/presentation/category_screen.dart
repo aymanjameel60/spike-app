@@ -29,18 +29,35 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasNext = false;
+  bool _rootSyncScheduled = false;
   int _page = 1;
   Object? _error;
   String _sort = 'relevance';
   String _filter = 'all';
-  late String _selectedCategoryId;
+  late String _rootId;
+  String _activeChildId = 'all';
+  String _loadedCategoryId = '';
 
   @override
   void initState() {
     super.initState();
-    _selectedCategoryId = widget.id;
+    _rootId = widget.id;
     _scrollController.addListener(_handleScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load(reset: true));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _loadCategory(widget.id, reset: true),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant CategoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.id == widget.id) return;
+    _rootId = widget.id;
+    _activeChildId = 'all';
+    _sort = 'relevance';
+    _filter = 'all';
+    _rootSyncScheduled = false;
+    _loadCategory(widget.id, reset: true);
   }
 
   @override
@@ -51,36 +68,56 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     super.dispose();
   }
 
-  @override
-  void didUpdateWidget(covariant CategoryScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.id != widget.id) {
-      _selectedCategoryId = widget.id;
-      _sort = 'relevance';
-      _filter = 'all';
-      _load(reset: true);
+  CategoryModel? _byId(List<CategoryModel> all, String id) {
+    for (final item in all) {
+      if (item.id == id) return item;
     }
+    return null;
+  }
+
+  CategoryModel? _rootFor(List<CategoryModel> all, CategoryModel? category) {
+    var current = category;
+    var guard = 0;
+    while (current?.parentId != null && guard++ < 20) {
+      final parent = _byId(all, current!.parentId!);
+      if (parent == null) break;
+      current = parent;
+    }
+    return current;
+  }
+
+  List<CategoryModel> _roots(List<CategoryModel> all) {
+    return all.where((c) => c.enabled && c.isRoot).toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  }
+
+  List<CategoryModel> _children(List<CategoryModel> all, String rootId) {
+    return all.where((c) => c.enabled && c.parentId == rootId).toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
   }
 
   void _handleScroll() {
     if (!_scrollController.hasClients || _loading || _loadingMore || !_hasNext) {
       return;
     }
-    if (_scrollController.position.extentAfter < 500) {
-      _load(reset: false);
+    if (_scrollController.position.extentAfter < 500 && _loadedCategoryId.isNotEmpty) {
+      _loadCategory(_loadedCategoryId, reset: false);
     }
   }
 
-  Future<void> _load({required bool reset}) async {
+  Future<void> _loadCategory(String categoryId, {required bool reset}) async {
     if (reset) {
-      setState(() {
-        _loading = true;
-        _loadingMore = false;
-        _error = null;
-        _page = 1;
-        _hasNext = false;
-        _products.clear();
-      });
+      if (mounted) {
+        setState(() {
+          _loading = true;
+          _loadingMore = false;
+          _error = null;
+          _page = 1;
+          _hasNext = false;
+          _products.clear();
+          _loadedCategoryId = categoryId;
+        });
+      }
     } else {
       if (_loadingMore || !_hasNext) return;
       setState(() => _loadingMore = true);
@@ -88,12 +125,12 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
     try {
       final result = await ref.read(catalogRepositoryProvider).pagedProducts(
-            categoryId: _selectedCategoryId,
+            categoryId: categoryId,
             includeDescendants: true,
             page: reset ? 1 : _page + 1,
             pageSize: _pageSize,
           );
-      if (!mounted) return;
+      if (!mounted || categoryId != _loadedCategoryId) return;
       final known = _products.map((e) => e.id).toSet();
       setState(() {
         if (reset) _products.clear();
@@ -104,7 +141,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
         _loadingMore = false;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || categoryId != _loadedCategoryId) return;
       setState(() {
         _loading = false;
         _loadingMore = false;
@@ -113,66 +150,23 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     }
   }
 
-  Future<void> _selectSubcategory(CategoryModel category) async {
-    final target = category.effectiveCategoryId ?? category.id;
+  Future<void> _selectAll() async {
+    if (_activeChildId == 'all' && _loadedCategoryId == _rootId) return;
+    setState(() => _activeChildId = 'all');
+    await _loadCategory(_rootId, reset: true);
+  }
 
+  Future<void> _selectChild(CategoryModel category) async {
     if (category.effectiveCollectionId != null) {
       context.push(
         '/products?collection=${Uri.encodeComponent(category.effectiveCollectionId!)}&title=${Uri.encodeComponent(category.name)}',
       );
       return;
     }
-
-    final nextId = _selectedCategoryId == target ? widget.id : target;
-    if (nextId == _selectedCategoryId) return;
-
-    setState(() {
-      _selectedCategoryId = nextId;
-      _sort = 'relevance';
-      _filter = 'all';
-    });
-
-    if (_scrollController.hasClients) {
-      final currentOffset = _scrollController.offset;
-      await _load(reset: true);
-      if (mounted && _scrollController.hasClients) {
-        _scrollController.jumpTo(
-          currentOffset.clamp(
-            0.0,
-            _scrollController.position.maxScrollExtent,
-          ),
-        );
-      }
-      return;
-    }
-
-    await _load(reset: true);
-  }
-
-  Future<void> _selectAllSubcategories() async {
-    if (_selectedCategoryId == widget.id) return;
-
-    setState(() {
-      _selectedCategoryId = widget.id;
-      _sort = 'relevance';
-      _filter = 'all';
-    });
-
-    if (_scrollController.hasClients) {
-      final currentOffset = _scrollController.offset;
-      await _load(reset: true);
-      if (mounted && _scrollController.hasClients) {
-        _scrollController.jumpTo(
-          currentOffset.clamp(
-            0.0,
-            _scrollController.position.maxScrollExtent,
-          ),
-        );
-      }
-      return;
-    }
-
-    await _load(reset: true);
+    final id = category.id;
+    if (_activeChildId == id && _loadedCategoryId == id) return;
+    setState(() => _activeChildId = id);
+    await _loadCategory(id, reset: true);
   }
 
   double _discount(ProductModel product) {
@@ -213,17 +207,9 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
             product: product,
           );
       ref.invalidate(cartCountProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تمت إضافة المنتج إلى السلة')),
-        );
-      }
+      if (mounted) showSpikeToast(context, 'تمت إضافة المنتج إلى السلة');
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
-      }
+      if (mounted) showSpikeToast(context, error.toString());
     }
   }
 
@@ -231,38 +217,30 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     if (_favoriteBusy.contains(product.id)) return;
     setState(() => _favoriteBusy.add(product.id));
     final current = ref.read(wishlistIdsProvider).valueOrNull ?? <String>{};
+    final active = current.contains(product.id);
     try {
-      if (current.contains(product.id)) {
+      if (active) {
         await ref.read(engagementRepositoryProvider).removeWishlist(product.id);
       } else {
         await ref.read(engagementRepositoryProvider).addWishlist(product.id);
       }
       ref.invalidate(wishlistIdsProvider);
       ref.invalidate(favoritesProvider);
+      if (mounted) {
+        showSpikeToast(
+          context,
+          active ? 'تمت إزالة المنتج من المفضلة' : 'تمت إضافة المنتج إلى المفضلة',
+        );
+      }
+    } catch (error) {
+      if (mounted) showSpikeToast(context, error.toString());
     } finally {
       if (mounted) setState(() => _favoriteBusy.remove(product.id));
     }
   }
 
-  void _openCategory(CategoryModel category) {
-    if (category.effectiveCollectionId != null) {
-      context.push(
-        '/products?collection=${Uri.encodeComponent(category.effectiveCollectionId!)}&title=${Uri.encodeComponent(category.name)}',
-      );
-      return;
-    }
-    context.push(
-      '/category/${Uri.encodeComponent(category.effectiveCategoryId ?? category.id)}',
-    );
-  }
-
-  List<CategoryModel> _rootCategories(List<CategoryModel> all) {
-    return all.where((c) => c.enabled && c.isRoot).toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-  }
-
   Future<void> _showSort() async {
-    final options = <(String, String)>[
+    const options = <(String, String)>[
       ('relevance', 'الأكثر صلة'),
       ('price-low', 'السعر: من الأقل للأعلى'),
       ('price-high', 'السعر: من الأعلى للأقل'),
@@ -314,7 +292,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   }
 
   Future<void> _showFilter() async {
-    final options = <(String, String)>[
+    const options = <(String, String)>[
       ('all', 'كل المنتجات'),
       ('offers', 'العروض فقط'),
       ('rating4', '4 نجوم فأعلى'),
@@ -364,7 +342,6 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  alignment: WrapAlignment.start,
                   children: [
                     for (final option in options)
                       _filterChip(
@@ -385,21 +362,19 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     );
   }
 
-  Widget _closeButton(VoidCallback onTap) {
-    return Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: const SizedBox(
-          width: 34,
-          height: 34,
-          child: Icon(LucideIcons.x, size: 19, color: Colors.black),
+  Widget _closeButton(VoidCallback onTap) => Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: const SizedBox(
+            width: 34,
+            height: 34,
+            child: Icon(LucideIcons.x, size: 19, color: Colors.black),
+          ),
         ),
-      ),
-    );
-  }
+      );
 
   Widget _filterChip({
     required String label,
@@ -434,22 +409,28 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
   Widget _toolButton({
     required IconData icon,
-    required String tooltip,
+    required String label,
     required VoidCallback onTap,
   }) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: dark ? spikeDarkPanel : const Color(0xFFEDEDED),
+    return Material(
+      color: dark ? spikeDarkPanel : const Color(0xFFEDEDED),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: SizedBox(
-            width: 36,
-            height: 36,
-            child: Icon(icon, size: 16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+              ),
+            ],
           ),
         ),
       ),
@@ -457,7 +438,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   }
 
   Widget _rootPicker(List<CategoryModel> all) {
-    final roots = _rootCategories(all);
+    final roots = _roots(all);
     if (roots.isEmpty) return const SizedBox.shrink();
     return PopupMenuButton<String>(
       tooltip: 'الفئات',
@@ -465,42 +446,23 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
       constraints: const BoxConstraints(minWidth: 210, maxHeight: 320),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       onSelected: (id) {
-        if (id == widget.id) {
-          if (_selectedCategoryId != widget.id) {
-            setState(() {
-              _selectedCategoryId = widget.id;
-              _sort = 'relevance';
-              _filter = 'all';
-            });
-            _load(reset: true);
-          }
+        if (id == _rootId) {
+          _selectAll();
           return;
         }
-        final selected = roots.where((item) => item.id == id).firstOrNull;
-        if (selected != null) _openCategory(selected);
+        context.push('/category/${Uri.encodeComponent(id)}');
       },
-      itemBuilder: (context) => [
+      itemBuilder: (_) => [
         for (final root in roots)
           PopupMenuItem<String>(
             value: root.id,
             height: 42,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              decoration: BoxDecoration(
-                color: root.id == widget.id
-                    ? Theme.of(context).colorScheme.surfaceContainerHighest
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                root.name,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight:
-                      root.id == widget.id ? FontWeight.w700 : FontWeight.w400,
-                ),
+            child: Text(
+              root.name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight:
+                    root.id == _rootId ? FontWeight.w700 : FontWeight.w400,
               ),
             ),
           ),
@@ -522,73 +484,13 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     );
   }
 
-  Widget _productSkeletonGrid() {
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 18),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 18,
-        childAspectRatio: .68,
-      ),
-      itemCount: 6,
-      itemBuilder: (context, index) {
-        final base = Theme.of(context).colorScheme.surfaceContainerHighest;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: base,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              height: 12,
-              decoration: BoxDecoration(
-                color: base,
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            const SizedBox(height: 7),
-            FractionallySizedBox(
-              widthFactor: .62,
-              alignment: Alignment.centerRight,
-              child: Container(
-                height: 10,
-                decoration: BoxDecoration(
-                  color: base,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final categories = ref.watch(categoriesProvider);
     final favoriteIds = ref.watch(wishlistIdsProvider).valueOrNull ?? <String>{};
 
     return categories.when(
-      loading: () => Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 60),
-              Expanded(child: _productSkeletonGrid()),
-            ],
-          ),
-        ),
-      ),
+      loading: () => const Scaffold(body: SafeArea(child: SpikeLoading())),
       error: (error, _) => Scaffold(
         body: SpikeErrorState(
           message: error.toString(),
@@ -596,27 +498,32 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
         ),
       ),
       data: (all) {
-        CategoryModel? category;
-        for (final item in all) {
-          if (item.id == widget.id) {
-            category = item;
-            break;
-          }
-        }
-
-        if (category == null) {
+        final routeCategory = _byId(all, widget.id);
+        final root = _rootFor(all, routeCategory);
+        if (root == null) {
           return const Scaffold(
-            body: SafeArea(
-              child: SpikeEmptyState(message: 'الفئة غير موجودة'),
-            ),
+            body: SafeArea(child: SpikeEmptyState(message: 'الفئة غير موجودة')),
           );
         }
 
-        final current = category;
-        final children = all
-            .where((item) => item.parentId == current.id && item.enabled)
-            .toList()
-          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        if (_rootId != root.id && !_rootSyncScheduled) {
+          _rootSyncScheduled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final enteredChild = routeCategory != null && !routeCategory.isRoot;
+            setState(() {
+              _rootId = root.id;
+              _activeChildId = enteredChild ? routeCategory.id : 'all';
+              _rootSyncScheduled = false;
+            });
+            _loadCategory(
+              enteredChild ? routeCategory.id : root.id,
+              reset: true,
+            );
+          });
+        }
+
+        final children = _children(all, root.id);
         final visibleProducts = _visibleProducts();
 
         return Scaffold(
@@ -624,7 +531,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
             child: RefreshIndicator(
               onRefresh: () async {
                 ref.invalidate(categoriesProvider);
-                await _load(reset: true);
+                await _loadCategory(
+                  _activeChildId == 'all' ? root.id : _activeChildId,
+                  reset: true,
+                );
               },
               child: CustomScrollView(
                 controller: _scrollController,
@@ -644,7 +554,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             ),
                             Expanded(
                               child: Text(
-                                current.name,
+                                root.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 textAlign: TextAlign.center,
@@ -660,7 +570,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       ),
                     ),
                   ),
-                  if (current.isRoot && current.bannerUrl != null)
+                  if (root.bannerUrl != null)
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
@@ -669,7 +579,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           child: AspectRatio(
                             aspectRatio: 3,
                             child: SpikeNetworkImage(
-                              url: current.bannerUrl,
+                              url: root.bannerUrl,
                               width: double.infinity,
                               fit: BoxFit.cover,
                             ),
@@ -686,13 +596,13 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           const Spacer(),
                           _toolButton(
                             icon: LucideIcons.arrowUpDown,
-                            tooltip: 'الترتيب',
+                            label: 'الترتيب',
                             onTap: _showSort,
                           ),
                           const SizedBox(width: 8),
                           _toolButton(
                             icon: LucideIcons.slidersHorizontal,
-                            tooltip: 'الفلتر',
+                            label: 'الفلتر',
                             onTap: _showFilter,
                           ),
                         ],
@@ -710,90 +620,19 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
                             itemCount: children.length + 1,
                             separatorBuilder: (_, __) => const SizedBox(width: 8),
-                            itemBuilder: (context, index) {
-                              final dark = Theme.of(context).brightness == Brightness.dark;
-
+                            itemBuilder: (_, index) {
                               if (index == 0) {
-                                final selected = _selectedCategoryId == widget.id;
-                                return Material(
-                                  color: selected
-                                      ? (dark ? Colors.white : Colors.black)
-                                      : (dark
-                                          ? spikeDarkPanel
-                                          : const Color(0xFFF1F1F1)),
-                                  borderRadius: BorderRadius.circular(18),
-                                  child: InkWell(
-                                    onTap: _selectAllSubcategories,
-                                    borderRadius: BorderRadius.circular(18),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 9,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: selected
-                                              ? Colors.transparent
-                                              : Colors.black.withValues(alpha: .08),
-                                        ),
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-                                      child: Text(
-                                        'الكل',
-                                        maxLines: 1,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: selected
-                                              ? (dark ? Colors.black : Colors.white)
-                                              : Theme.of(context).colorScheme.onSurface,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                return _subcategoryPill(
+                                  label: 'الكل',
+                                  selected: _activeChildId == 'all',
+                                  onTap: _selectAll,
                                 );
                               }
-
                               final child = children[index - 1];
-                              final target = child.effectiveCategoryId ?? child.id;
-                              final selected = _selectedCategoryId == target;
-
-                              return Material(
-                                color: selected
-                                    ? (dark ? Colors.white : Colors.black)
-                                    : (dark
-                                        ? spikeDarkPanel
-                                        : const Color(0xFFF1F1F1)),
-                                borderRadius: BorderRadius.circular(18),
-                                child: InkWell(
-                                  onTap: () => _selectSubcategory(child),
-                                  borderRadius: BorderRadius.circular(18),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 9,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: selected
-                                            ? Colors.transparent
-                                            : Colors.black.withValues(alpha: .08),
-                                      ),
-                                      borderRadius: BorderRadius.circular(18),
-                                    ),
-                                    child: Text(
-                                      child.name,
-                                      maxLines: 1,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: selected
-                                            ? (dark ? Colors.black : Colors.white)
-                                            : Theme.of(context).colorScheme.onSurface,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                              return _subcategoryPill(
+                                label: child.name,
+                                selected: _activeChildId == child.id,
+                                onTap: () => _selectChild(child),
                               );
                             },
                           ),
@@ -801,12 +640,15 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       ),
                     ),
                   if (_loading)
-                    SliverToBoxAdapter(child: _productSkeletonGrid())
+                    const SliverToBoxAdapter(child: SpikeLoading())
                   else if (_error != null)
                     SliverToBoxAdapter(
                       child: SpikeErrorState(
                         message: _error.toString(),
-                        onRetry: () => _load(reset: true),
+                        onRetry: () => _loadCategory(
+                          _activeChildId == 'all' ? root.id : _activeChildId,
+                          reset: true,
+                        ),
                       ),
                     )
                   else if (visibleProducts.isEmpty)
@@ -820,49 +662,41 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
-                      sliver: SliverGrid(
+                      padding: const EdgeInsets.fromLTRB(17, 0, 17, 24),
+                      sliver: SliverGrid.builder(
+                        itemCount: visibleProducts.length,
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 18,
-                          childAspectRatio: .68,
+                          crossAxisSpacing: 11,
+                          mainAxisSpacing: 11,
+                          mainAxisExtent: 246,
                         ),
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final product = visibleProducts[index];
-                            return SpikeProductCard(
-                              product: product,
-                              isFavorite: favoriteIds.contains(product.id),
-                              onTap: () => context.push('/product/${product.id}'),
-                              onAdd: product.purchasable &&
-                                      product.cheapestVariant != null
-                                  ? () => _add(product)
-                                  : null,
-                              onFavorite: _favoriteBusy.contains(product.id)
-                                  ? null
-                                  : () => _favorite(product),
-                              onStore: product.storeId == null
-                                  ? null
-                                  : () => context.push('/store/${product.storeId}'),
-                            );
-                          },
-                          childCount: visibleProducts.length,
-                        ),
+                        itemBuilder: (_, index) {
+                          final product = visibleProducts[index];
+                          return SpikeProductCard(
+                            product: product,
+                            isFavorite: favoriteIds.contains(product.id),
+                            onTap: () => context.push('/product/${product.id}'),
+                            onAdd: product.purchasable &&
+                                    product.cheapestVariant != null
+                                ? () => _add(product)
+                                : null,
+                            onFavorite: _favoriteBusy.contains(product.id)
+                                ? null
+                                : () => _favorite(product),
+                            onStore: product.storeId == null
+                                ? null
+                                : () => context.push('/store/${product.storeId}'),
+                          );
+                        },
                       ),
                     ),
                   if (_loadingMore)
                     const SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.only(bottom: 24),
-                        child: Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
+                        padding: EdgeInsets.all(16),
+                        child: Center(child: CircularProgressIndicator()),
                       ),
                     ),
                 ],
@@ -871,6 +705,38 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _subcategoryPill({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: selected
+          ? (dark ? Colors.white : Colors.black)
+          : (dark ? spikeDarkPanel : const Color(0xFFF1F1F1)),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Text(
+            label,
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: selected
+                  ? (dark ? Colors.black : Colors.white)
+                  : Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
