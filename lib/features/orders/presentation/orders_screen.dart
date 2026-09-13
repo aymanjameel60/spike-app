@@ -117,7 +117,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         ]),
                         if (needsReceipt) ...[
                           const SizedBox(height: 10),
-                          const _ReceiptBadge(color: spikeRed, icon: LucideIcons.receipt, text: 'سند الحوالة مطلوب'),
+                          const _ReceiptBadge(color: spikeRed, icon: LucideIcons.receipt, text: 'بانتظار سند التحويل'),
                           const SizedBox(height: 5),
                           const Text('ارفع سند الحوالة لإكمال مراجعة الدفع.', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: spikeRed)),
                         ] else if (receiptPending) ...[
@@ -211,7 +211,7 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
             const Text('تقييم المنتج', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
-              initialValue: rating,
+              value: rating,
               items: [5, 4, 3, 2, 1].map((v) => DropdownMenuItem(value: v, child: Text('${'★' * v}${'☆' * (5 - v)}'))).toList(),
               onChanged: (v) => setSheetState(() => rating = v ?? 5),
             ),
@@ -246,7 +246,7 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
       child: SafeArea(top: false, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text('تقييم متجر ${store['store_name'] ?? ''}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
-        DropdownButtonFormField<int>(initialValue: rating, items: [5, 4, 3, 2, 1].map((v) => DropdownMenuItem(value: v, child: Text('${'★' * v}${'☆' * (5 - v)}'))).toList(), onChanged: (v) => setSheetState(() => rating = v ?? 5)),
+        DropdownButtonFormField<int>(value: rating, items: [5, 4, 3, 2, 1].map((v) => DropdownMenuItem(value: v, child: Text('${'★' * v}${'☆' * (5 - v)}'))).toList(), onChanged: (v) => setSheetState(() => rating = v ?? 5)),
         const SizedBox(height: 10),
         TextField(controller: comment, maxLines: 3, decoration: const InputDecoration(hintText: 'تعليقك - اختياري')),
         const SizedBox(height: 12),
@@ -326,48 +326,13 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final session = ref.watch(hasSessionProvider);
-    return session.when(
-      loading: () => const Scaffold(body: SafeArea(child: SpikeLoading())),
-      error: (_, __) => Scaffold(
-        body: SafeArea(
-          child: _LoginRequired(
-            title: 'سجّل الدخول لعرض تفاصيل الطلب',
-            message: 'يلزم تسجيل الدخول لفتح هذا الطلب.',
-            onLogin: () => context.push('/login?next=${Uri.encodeComponent('/order/${widget.id}')}'),
-          ),
-        ),
-      ),
-      data: (loggedIn) => loggedIn ? _detailsScaffold() : Scaffold(
-        body: SafeArea(
-          child: _LoginRequired(
-            title: 'سجّل الدخول لعرض تفاصيل الطلب',
-            message: 'يلزم تسجيل الدخول لفتح هذا الطلب.',
-            onLogin: () => context.push('/login?next=${Uri.encodeComponent('/order/${widget.id}')}'),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _detailsScaffold() {
     final details = ref.watch(orderDetailsProvider(widget.id));
     final timeline = ref.watch(orderTimelineProvider(widget.id));
     return Scaffold(body: SafeArea(child: Column(children: [
       _head(context, 'تفاصيل الطلب'),
       Expanded(child: details.when(
         loading: () => const SpikeLoading(),
-        error: (e, _) {
-          final raw = e.toString().toLowerCase();
-          if (raw.contains('unauthorized') || raw.contains('401')) {
-            return _LoginRequired(
-              title: 'انتهت جلسة تسجيل الدخول',
-              message: 'سجّل الدخول مرة أخرى لعرض تفاصيل الطلب.',
-              onLogin: () => context.push('/login?next=${Uri.encodeComponent('/order/${widget.id}')}'),
-            );
-          }
-          return SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(orderDetailsProvider(widget.id)));
-        },
+        error: (e, _) => SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(orderDetailsProvider(widget.id))),
         data: (d) {
           final order = Map<String, dynamic>.from(d['order'] as Map? ?? const {});
           final subs = (d['suborders'] as List? ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
@@ -518,57 +483,55 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
   }
 }
 
+class _LoginRequired extends StatelessWidget {
+  const _LoginRequired({required this.title, required this.message, required this.onLogin});
+  final String title, message;
+  final VoidCallback onLogin;
+  @override
+  Widget build(BuildContext context) => Column(children: [
+        _head(context, 'طلباتي'),
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 34),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(LucideIcons.logIn, size: 44),
+                const SizedBox(height: 14),
+                Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 7),
+                Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: spikeMuted, height: 1.5)),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 43,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: spikeRed),
+                    onPressed: onLogin,
+                    child: const Text('تسجيل الدخول', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ]);
+}
+
 class _ReceiptBadge extends StatelessWidget {
   const _ReceiptBadge({required this.color, required this.icon, required this.text});
   final Color color;
   final IconData icon;
   final String text;
-
   @override
   Widget build(BuildContext context) => Align(
         alignment: Alignment.centerRight,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: .10),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: .30)),
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+          decoration: BoxDecoration(color: color.withValues(alpha: .10), borderRadius: BorderRadius.circular(10)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 5),
             Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
-          ]),
-        ),
-      );
-}
-
-class _LoginRequired extends StatelessWidget {
-  const _LoginRequired({required this.title, required this.message, required this.onLogin});
-  final String title;
-  final String message;
-  final VoidCallback onLogin;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 34),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(LucideIcons.userRoundCheck, size: 44),
-            const SizedBox(height: 14),
-            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 7),
-            Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: spikeMuted, height: 1.5)),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              height: 43,
-              child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: spikeRed),
-                onPressed: onLogin,
-                child: const Text('تسجيل الدخول', style: TextStyle(fontWeight: FontWeight.w700)),
-              ),
-            ),
           ]),
         ),
       );
