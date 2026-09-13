@@ -19,89 +19,135 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   bool previous = false;
 
   bool _done(String status) => const {'delivered', 'returned', 'rejected'}.contains(status);
+  bool _needsReceipt(String method, String paymentStatus, String orderStatus) =>
+      method == 'transfer' &&
+      const {'awaiting_receipt', 'receipt_rejected'}.contains(paymentStatus) &&
+      !_done(orderStatus);
+  bool _receiptPending(String method, String paymentStatus) =>
+      method == 'transfer' && paymentStatus == 'pending_review';
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(ordersProvider);
+    final session = ref.watch(hasSessionProvider);
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: SafeArea(
-        child: Column(children: [
-          _head(context, 'طلباتي'),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(SpikeSpacing.page, 0, SpikeSpacing.page, 18),
-            child: Row(children: [
-              _tab('الحالية', !previous, () => setState(() => previous = false), dark),
-              const SizedBox(width: 9),
-              _tab('السابقة', previous, () => setState(() => previous = true), dark),
-            ]),
+        child: session.when(
+          loading: () => const SpikeLoading(),
+          error: (_, __) => _LoginRequired(
+            title: 'سجّل الدخول لعرض طلباتك',
+            message: 'تابع طلباتك الحالية والسابقة من حسابك.',
+            onLogin: () => context.push('/login?next=%2Forders'),
           ),
-          Expanded(
-            child: state.when(
-              loading: () => const SpikeLoading(),
-              error: (e, _) => SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(ordersProvider)),
-              data: (orders) {
-                final list = orders.where((o) => previous ? _done(o.status) : !_done(o.status)).toList();
-                if (list.isEmpty) return SpikeEmptyState(message: previous ? 'لا توجد طلبات سابقة حتى الآن' : 'طلباتك الجديدة ستظهر هنا');
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    ref.invalidate(ordersProvider);
-                    await ref.read(ordersProvider.future);
-                  },
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(SpikeSpacing.page, 0, SpikeSpacing.page, SpikeSpacing.xl),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 13),
-                    itemBuilder: (context, i) {
-                      final o = list[i];
-                      final statusColor = _statusColor(o.status);
-                      final split = o.spikeWalletAmount > 0 && o.remainingAmount > 0;
-                      return InkWell(
-                        onTap: () => context.push('/order/${o.id}'),
-                        borderRadius: BorderRadius.circular(24),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: dark ? spikeDarkPanel : const Color(0xFFE9E9E9),
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Expanded(
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text(_status(o.status), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: statusColor)),
-                                  if (o.displayDate.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 2), child: Text(o.displayDate, style: const TextStyle(fontSize: 9, color: spikeMuted))),
-                                ]),
-                              ),
-                              Directionality(textDirection: TextDirection.ltr, child: Text('#${_short(o.id)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                            ]),
-                            const Padding(padding: EdgeInsets.symmetric(vertical: 11), child: Divider(height: 1)),
-                            Row(children: [
-                              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(split ? 'محفظة سبايك + ${_paymentMethod(o.paymentMethod)}' : _paymentMethod(o.paymentMethod), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
-                                Text(_payment(o.paymentStatus), style: const TextStyle(fontSize: 9, color: spikeMuted)),
-                              ])),
-                              Text('${o.total.toStringAsFixed(2)} ${o.currencyCode}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                              const SizedBox(width: 8),
-                              const Icon(LucideIcons.chevronLeft, size: 18, color: spikeMuted),
-                            ]),
-                            if (split) Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text('من سبايك ${o.spikeWalletAmount.toStringAsFixed(2)} • المتبقي ${o.remainingAmount.toStringAsFixed(2)} ${o.currencyCode}', style: const TextStyle(fontSize: 9, color: spikeMuted)),
-                            ),
-                          ]),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-        ]),
+          data: (loggedIn) => loggedIn
+              ? _ordersBody(dark)
+              : _LoginRequired(
+                  title: 'سجّل الدخول لعرض طلباتك',
+                  message: 'تابع طلباتك الحالية والسابقة من حسابك.',
+                  onLogin: () => context.push('/login?next=%2Forders'),
+                ),
+        ),
       ),
     );
+  }
+
+  Widget _ordersBody(bool dark) {
+    final state = ref.watch(ordersProvider);
+    return Column(children: [
+      _head(context, 'طلباتي'),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(SpikeSpacing.page, 0, SpikeSpacing.page, 18),
+        child: Row(children: [
+          _tab('الحالية', !previous, () => setState(() => previous = false), dark),
+          const SizedBox(width: 9),
+          _tab('السابقة', previous, () => setState(() => previous = true), dark),
+        ]),
+      ),
+      Expanded(
+        child: state.when(
+          loading: () => const SpikeLoading(),
+          error: (e, _) {
+            final raw = e.toString().toLowerCase();
+            if (raw.contains('unauthorized') || raw.contains('401')) {
+              return _LoginRequired(
+                title: 'انتهت جلسة تسجيل الدخول',
+                message: 'سجّل الدخول مرة أخرى لمتابعة طلباتك.',
+                onLogin: () => context.push('/login?next=%2Forders'),
+              );
+            }
+            return SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(ordersProvider));
+          },
+          data: (orders) {
+            final list = orders.where((o) => previous ? _done(o.status) : !_done(o.status)).toList();
+            if (list.isEmpty) return SpikeEmptyState(message: previous ? 'لا توجد طلبات سابقة حتى الآن' : 'طلباتك الجديدة ستظهر هنا');
+            return RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(ordersProvider);
+                await ref.read(ordersProvider.future);
+              },
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(SpikeSpacing.page, 0, SpikeSpacing.page, SpikeSpacing.xl),
+                itemCount: list.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 13),
+                itemBuilder: (context, i) {
+                  final o = list[i];
+                  final statusColor = _statusColor(o.status);
+                  final split = o.spikeWalletAmount > 0 && o.remainingAmount > 0;
+                  final needsReceipt = _needsReceipt(o.paymentMethod, o.paymentStatus, o.status);
+                  final receiptPending = _receiptPending(o.paymentMethod, o.paymentStatus);
+                  return InkWell(
+                    onTap: () => context.push('/order/${o.id}'),
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: dark ? spikeDarkPanel : const Color(0xFFE9E9E9),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(_status(o.status), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: statusColor)),
+                              if (o.displayDate.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 2), child: Text(o.displayDate, style: const TextStyle(fontSize: 9, color: spikeMuted))),
+                            ]),
+                          ),
+                          Directionality(textDirection: TextDirection.ltr, child: Text('#${_short(o.id)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+                        ]),
+                        if (needsReceipt) ...[
+                          const SizedBox(height: 10),
+                          const _ReceiptBadge(color: spikeRed, icon: LucideIcons.receipt, text: 'سند الحوالة مطلوب'),
+                          const SizedBox(height: 5),
+                          const Text('ارفع سند الحوالة لإكمال مراجعة الدفع.', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: spikeRed)),
+                        ] else if (receiptPending) ...[
+                          const SizedBox(height: 10),
+                          const _ReceiptBadge(color: Color(0xFFC47A00), icon: LucideIcons.clock3, text: 'السند قيد المراجعة'),
+                        ],
+                        const Padding(padding: EdgeInsets.symmetric(vertical: 11), child: Divider(height: 1)),
+                        Row(children: [
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(split ? 'محفظة سبايك + ${_paymentMethod(o.paymentMethod)}' : _paymentMethod(o.paymentMethod), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                            Text(_payment(o.paymentStatus), style: const TextStyle(fontSize: 9, color: spikeMuted)),
+                          ])),
+                          Text('${o.total.toStringAsFixed(2)} ${o.currencyCode}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                          const SizedBox(width: 8),
+                          const Icon(LucideIcons.chevronLeft, size: 18, color: spikeMuted),
+                        ]),
+                        if (split) Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text('من سبايك ${o.spikeWalletAmount.toStringAsFixed(2)} • المتبقي ${o.remainingAmount.toStringAsFixed(2)} ${o.currencyCode}', style: const TextStyle(fontSize: 9, color: spikeMuted)),
+                        ),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ),
+    ]);
   }
 
   Widget _tab(String label, bool active, VoidCallback onTap, bool dark) => SizedBox(
@@ -165,7 +211,7 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
             const Text('تقييم المنتج', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
-              value: rating,
+              initialValue: rating,
               items: [5, 4, 3, 2, 1].map((v) => DropdownMenuItem(value: v, child: Text('${'★' * v}${'☆' * (5 - v)}'))).toList(),
               onChanged: (v) => setSheetState(() => rating = v ?? 5),
             ),
@@ -200,7 +246,7 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
       child: SafeArea(top: false, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text('تقييم متجر ${store['store_name'] ?? ''}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
-        DropdownButtonFormField<int>(value: rating, items: [5, 4, 3, 2, 1].map((v) => DropdownMenuItem(value: v, child: Text('${'★' * v}${'☆' * (5 - v)}'))).toList(), onChanged: (v) => setSheetState(() => rating = v ?? 5)),
+        DropdownButtonFormField<int>(initialValue: rating, items: [5, 4, 3, 2, 1].map((v) => DropdownMenuItem(value: v, child: Text('${'★' * v}${'☆' * (5 - v)}'))).toList(), onChanged: (v) => setSheetState(() => rating = v ?? 5)),
         const SizedBox(height: 10),
         TextField(controller: comment, maxLines: 3, decoration: const InputDecoration(hintText: 'تعليقك - اختياري')),
         const SizedBox(height: 12),
@@ -280,13 +326,48 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(hasSessionProvider);
+    return session.when(
+      loading: () => const Scaffold(body: SafeArea(child: SpikeLoading())),
+      error: (_, __) => Scaffold(
+        body: SafeArea(
+          child: _LoginRequired(
+            title: 'سجّل الدخول لعرض تفاصيل الطلب',
+            message: 'يلزم تسجيل الدخول لفتح هذا الطلب.',
+            onLogin: () => context.push('/login?next=${Uri.encodeComponent('/order/${widget.id}')}'),
+          ),
+        ),
+      ),
+      data: (loggedIn) => loggedIn ? _detailsScaffold() : Scaffold(
+        body: SafeArea(
+          child: _LoginRequired(
+            title: 'سجّل الدخول لعرض تفاصيل الطلب',
+            message: 'يلزم تسجيل الدخول لفتح هذا الطلب.',
+            onLogin: () => context.push('/login?next=${Uri.encodeComponent('/order/${widget.id}')}'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailsScaffold() {
     final details = ref.watch(orderDetailsProvider(widget.id));
     final timeline = ref.watch(orderTimelineProvider(widget.id));
     return Scaffold(body: SafeArea(child: Column(children: [
       _head(context, 'تفاصيل الطلب'),
       Expanded(child: details.when(
         loading: () => const SpikeLoading(),
-        error: (e, _) => SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(orderDetailsProvider(widget.id))),
+        error: (e, _) {
+          final raw = e.toString().toLowerCase();
+          if (raw.contains('unauthorized') || raw.contains('401')) {
+            return _LoginRequired(
+              title: 'انتهت جلسة تسجيل الدخول',
+              message: 'سجّل الدخول مرة أخرى لعرض تفاصيل الطلب.',
+              onLogin: () => context.push('/login?next=${Uri.encodeComponent('/order/${widget.id}')}'),
+            );
+          }
+          return SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(orderDetailsProvider(widget.id)));
+        },
         data: (d) {
           final order = Map<String, dynamic>.from(d['order'] as Map? ?? const {});
           final subs = (d['suborders'] as List? ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
@@ -435,6 +516,62 @@ class _OrderDetailsScreenState extends ConsumerState<OrderDetailsScreen> {
       )),
     ])));
   }
+}
+
+class _ReceiptBadge extends StatelessWidget {
+  const _ReceiptBadge({required this.color, required this.icon, required this.text});
+  final Color color;
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .10),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: .30)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 5),
+            Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+          ]),
+        ),
+      );
+}
+
+class _LoginRequired extends StatelessWidget {
+  const _LoginRequired({required this.title, required this.message, required this.onLogin});
+  final String title;
+  final String message;
+  final VoidCallback onLogin;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 34),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(LucideIcons.userRoundCheck, size: 44),
+            const SizedBox(height: 14),
+            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 7),
+            Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: spikeMuted, height: 1.5)),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              height: 43,
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: spikeRed),
+                onPressed: onLogin,
+                child: const Text('تسجيل الدخول', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ]),
+        ),
+      );
 }
 
 Widget _head(BuildContext context, String title) => Padding(
