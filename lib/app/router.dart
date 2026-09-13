@@ -34,6 +34,14 @@ import '../features/stores/presentation/stores_screen.dart';
 NoTransitionPage<void> _page(GoRouterState state, Widget child) =>
     NoTransitionPage<void>(key: state.pageKey, child: child);
 
+AuthScreen _auth(GoRouterState state, String mode) => AuthScreen(
+      mode: mode,
+      afterLoginRoute: (state.uri.queryParameters['next']?.isNotEmpty ?? false)
+          ? state.uri.queryParameters['next']!
+          : '/profile',
+      referralCode: state.uri.queryParameters['ref'] ?? '',
+    );
+
 final appRouter = GoRouter(
   routes: [
     ShellRoute(
@@ -44,6 +52,8 @@ final appRouter = GoRouter(
         GoRoute(path: '/offers', pageBuilder: (_, state) => _page(state, const OffersScreen())),
         GoRoute(path: '/cart', pageBuilder: (_, state) => _page(state, const CartScreen())),
         GoRoute(path: '/profile', pageBuilder: (_, state) => _page(state, const ProfileScreen())),
+        GoRoute(path: '/login', pageBuilder: (_, state) => _page(state, _auth(state, 'login'))),
+        GoRoute(path: '/signup', pageBuilder: (_, state) => _page(state, _auth(state, 'signup'))),
         GoRoute(path: '/personal-data', pageBuilder: (_, state) => _page(state, const PersonalDataScreen())),
         GoRoute(path: '/privacy', pageBuilder: (_, state) => _page(state, const PrivacyScreen())),
         GoRoute(path: '/settings', pageBuilder: (_, state) => _page(state, const SettingsScreen())),
@@ -87,8 +97,6 @@ final appRouter = GoRouter(
       ],
     ),
     GoRoute(path: '/password-reset', pageBuilder: (_, state) => _page(state, const PasswordResetScreen())),
-    GoRoute(path: '/login', pageBuilder: (_, state) => _page(state, AuthScreen(mode: 'login', afterLoginRoute: (state.uri.queryParameters['next']?.isNotEmpty ?? false) ? state.uri.queryParameters['next']! : '/profile', referralCode: state.uri.queryParameters['ref'] ?? ''))),
-    GoRoute(path: '/signup', pageBuilder: (_, state) => _page(state, AuthScreen(mode: 'signup', afterLoginRoute: (state.uri.queryParameters['next']?.isNotEmpty ?? false) ? state.uri.queryParameters['next']! : '/profile', referralCode: state.uri.queryParameters['ref'] ?? ''))),
   ],
   errorBuilder: (_, __) => const Directionality(
     textDirection: TextDirection.rtl,
