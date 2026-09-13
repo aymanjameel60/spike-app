@@ -31,11 +31,9 @@ class CategoryModel {
 
   bool get isRoot => parentId == null || parentId!.isEmpty;
 
-  String? get effectiveCategoryId {
-    if (actionType != 'category') return null;
-    final target = actionTarget?.trim() ?? '';
-    return target.isNotEmpty ? target : id;
-  }
+  /// Web parity: a normal category always opens its own backend id.
+  /// `action_target` is only meaningful for explicit non-category actions.
+  String? get effectiveCategoryId => actionType == 'category' ? id : null;
 
   String? get effectiveCollectionId {
     if (actionType != 'collection') return null;
@@ -49,16 +47,15 @@ class CategoryModel {
   factory CategoryModel.fromJson(Map<String, dynamic> j) {
     final resolved = ApiConfig.resolveMedia('${j['image_url'] ?? ''}');
     final resolvedBanner = ApiConfig.resolveMedia('${j['banner_url'] ?? ''}');
-    final rawActionType = '${j['action_type'] ?? 'category'}'.trim();
+    final rawActionType = '${j['action_type'] ?? 'category'}'.trim().toLowerCase();
+    final actionType = rawActionType.isEmpty ? 'category' : rawActionType;
     final rawActionTarget = '${j['action_target'] ?? ''}'.trim();
     final rawParentId = '${j['parent_id'] ?? ''}'.trim();
     final rawParentName = '${j['parent_name'] ?? ''}'.trim();
-    final rawName = '${j['name'] ?? ''}'.trim();
-    final isMoreName = rawName == 'المزيد' || rawName == 'كل الفئات';
 
     return CategoryModel(
       id: '${j['id'] ?? ''}',
-      name: rawName,
+      name: '${j['name'] ?? ''}'.trim(),
       imageUrl: resolved.isEmpty ? null : resolved,
       bannerUrl: resolvedBanner.isEmpty ? null : resolvedBanner,
       parentId: rawParentId.isEmpty ? null : rawParentId,
@@ -67,9 +64,13 @@ class CategoryModel {
           (int.tryParse('${j['child_count'] ?? 0}') ?? 0) > 0,
       enabled: j['enabled'] != false,
       sortOrder: int.tryParse('${j['sort_order'] ?? 0}') ?? 0,
-      actionType: rawActionType.isEmpty ? 'category' : rawActionType,
-      actionTarget: rawActionTarget.isEmpty ? null : rawActionTarget,
-      showAsMore: j['show_as_more'] == true || isMoreName,
+      actionType: actionType,
+      actionTarget: actionType == 'category' || rawActionTarget.isEmpty
+          ? null
+          : rawActionTarget,
+      // Match the web contract exactly: More is explicit metadata, never
+      // inferred from a localized display name.
+      showAsMore: j['show_as_more'] == true,
     );
   }
 }
