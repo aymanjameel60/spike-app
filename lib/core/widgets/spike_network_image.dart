@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:spike_flutter_app/core/api_config.dart';
 
 class SpikeNetworkImage extends StatelessWidget {
   const SpikeNetworkImage({
@@ -24,7 +25,7 @@ class SpikeNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final value = (url ?? '').trim();
+    final value = ApiConfig.resolveMedia((url ?? '').trim());
     final dark = Theme.of(context).brightness == Brightness.dark;
     final fallback = Icon(
       LucideIcons.image,
