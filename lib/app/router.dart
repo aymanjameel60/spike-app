@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../features/auth/presentation/auth_screen.dart';
 import '../features/auth/presentation/password_reset_screen.dart';
 import '../features/cart/presentation/cart_screen.dart';
@@ -30,6 +31,18 @@ import '../features/search/presentation/search_screen.dart';
 import '../features/shell/presentation/main_shell.dart';
 import '../features/stores/presentation/store_details_screen.dart';
 import '../features/stores/presentation/stores_screen.dart';
+
+const _recentProductsKey = 'spike-recently-viewed';
+
+void _rememberProduct(String id) {
+  final value = id.trim();
+  if (value.isEmpty) return;
+  SharedPreferences.getInstance().then((prefs) async {
+    final current = prefs.getStringList(_recentProductsKey) ?? const <String>[];
+    final next = <String>[value, ...current.where((item) => item != value)].take(12).toList();
+    await prefs.setStringList(_recentProductsKey, next);
+  });
+}
 
 NoTransitionPage<void> _page(GoRouterState state, Widget child) =>
     NoTransitionPage<void>(key: state.pageKey, child: child);
@@ -92,7 +105,14 @@ final appRouter = GoRouter(
             );
           },
         ),
-        GoRoute(path: '/product/:id', pageBuilder: (_, state) => _page(state, ProductDetailsScreen(id: state.pathParameters['id']!))),
+        GoRoute(
+          path: '/product/:id',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            _rememberProduct(id);
+            return _page(state, ProductDetailsScreen(id: id));
+          },
+        ),
         GoRoute(path: '/search', pageBuilder: (_, state) => _page(state, SearchScreen(initialQuery: state.uri.queryParameters['q'] ?? ''))),
       ],
     ),
