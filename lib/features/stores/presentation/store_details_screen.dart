@@ -1,12 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
+import '../../../core/widgets/spike_network_image.dart';
 import '../../../models/product.dart';
 import '../../../widgets/product_card.dart';
 
@@ -22,8 +23,7 @@ class StoreDetailsScreen extends ConsumerStatefulWidget {
 class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
   String _query = '';
   String _sort = 'relevance';
-  String _category = 'الكل';
-  String _specialFilter = 'all';
+  bool _followed = false;
   final Set<String> _favoriteBusy = {};
 
   double _discount(ProductModel product) {
@@ -33,119 +33,64 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
         : 0;
   }
 
-  void _showFilters(List<String> categories) {
-    var localSort = _sort;
-    var localCategory = _category;
-    var localSpecial = _specialFilter;
+  void _showSort() {
+    const options = <(String, String)>[
+      ('relevance', 'الترتيب الافتراضي'),
+      ('rating', 'الأعلى تقييماً'),
+      ('price-low', 'السعر: الأقل أولاً'),
+      ('price-high', 'السعر: الأعلى أولاً'),
+    ];
 
     showModalBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setLocal) => SafeArea(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              18,
-              22,
-              18,
-              MediaQuery.viewInsetsOf(sheetContext).bottom + 26,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Theme.of(sheetContext).dividerColor,
-                      borderRadius: BorderRadius.circular(5),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'ترتيب منتجات المتجر',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'فلترة وترتيب منتجات المتجر',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      onTap: () => Navigator.pop(sheetContext),
+                      customBorder: const CircleBorder(),
+                      child: const SizedBox(
+                        width: 34,
+                        height: 34,
+                        child: Icon(LucideIcons.x, size: 19, color: Colors.black),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(sheetContext),
-                      icon: const Icon(LucideIcons.x, size: 20),
-                    ),
-                    TextButton(
-                      onPressed: () => setLocal(() {
-                        localSort = 'relevance';
-                        localCategory = 'الكل';
-                        localSpecial = 'all';
-                      }),
-                      child: const Text(
-                        'مسح الكل',
-                        style: TextStyle(fontSize: 10, color: spikeRed),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                _FilterGroup(
-                  title: 'الترتيب',
-                  children: [
-                    _Chip('الأكثر صلة', localSort == 'relevance', () => setLocal(() => localSort = 'relevance')),
-                    _Chip('السعر: الأقل أولاً', localSort == 'price-low', () => setLocal(() => localSort = 'price-low')),
-                    _Chip('السعر: الأعلى أولاً', localSort == 'price-high', () => setLocal(() => localSort = 'price-high')),
-                    _Chip('الأعلى تقييمًا', localSort == 'rating', () => setLocal(() => localSort = 'rating')),
-                    _Chip('الأعلى خصمًا', localSort == 'discount', () => setLocal(() => localSort = 'discount')),
-                  ],
-                ),
-                if (categories.isNotEmpty)
-                  _FilterGroup(
-                    title: 'الفئة',
-                    children: [
-                      _Chip('الكل', localCategory == 'الكل', () => setLocal(() => localCategory = 'الكل')),
-                      for (final category in categories)
-                        _Chip(
-                          category,
-                          localCategory == category,
-                          () => setLocal(() => localCategory = category),
-                        ),
-                    ],
-                  ),
-                _FilterGroup(
-                  title: 'نوع المنتجات',
-                  children: [
-                    _Chip('كل المنتجات', localSpecial == 'all', () => setLocal(() => localSpecial = 'all')),
-                    _Chip('العروض فقط', localSpecial == 'offers', () => setLocal(() => localSpecial = 'offers')),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                SizedBox(
-                  height: 39,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: spikeRed,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(22),
-                      ),
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _sort = localSort;
-                        _category = localCategory;
-                        _specialFilter = localSpecial;
-                      });
-                      Navigator.pop(sheetContext);
-                    },
-                    child: const Text(
-                      'عرض النتائج',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              for (final option in options)
+                RadioListTile<String>(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  value: option.$1,
+                  groupValue: _sort,
+                  title: Text(option.$2, style: const TextStyle(fontSize: 14)),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _sort = value);
+                    Navigator.pop(sheetContext);
+                  },
                 ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
@@ -193,6 +138,24 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
     }
   }
 
+  List<ProductModel> _visible(List<ProductModel> source) {
+    final query = _query.trim().toLowerCase();
+    final list = source.where((product) {
+      if (query.isEmpty) return true;
+      return product.name.toLowerCase().contains(query) ||
+          (product.categoryName ?? '').toLowerCase().contains(query);
+    }).toList();
+
+    if (_sort == 'price-low') {
+      list.sort((a, b) => a.price.compareTo(b.price));
+    } else if (_sort == 'price-high') {
+      list.sort((a, b) => b.price.compareTo(a.price));
+    } else if (_sort == 'rating') {
+      list.sort((a, b) => b.rating.compareTo(a.rating));
+    }
+    return list;
+  }
+
   @override
   Widget build(BuildContext context) {
     final stores = ref.watch(storesProvider);
@@ -223,35 +186,7 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                 onRetry: () => ref.invalidate(storeProductsProvider(widget.id)),
               ),
               data: (storeProducts) {
-                final categories = <String>{
-                  for (final product in storeProducts)
-                    if ((product.categoryName ?? '').trim().isNotEmpty)
-                      product.categoryName!.trim(),
-                }.toList()
-                  ..sort();
-
-                final query = _query.toLowerCase();
-                final list = storeProducts.where((product) {
-                  final matchesQuery = query.isEmpty ||
-                      product.name.toLowerCase().contains(query) ||
-                      (product.categoryName ?? '').toLowerCase().contains(query);
-                  final matchesCategory =
-                      _category == 'الكل' || product.categoryName == _category;
-                  final matchesSpecial =
-                      _specialFilter != 'offers' || _discount(product) > 0;
-                  return matchesQuery && matchesCategory && matchesSpecial;
-                }).toList();
-
-                if (_sort == 'price-low') {
-                  list.sort((a, b) => a.price.compareTo(b.price));
-                } else if (_sort == 'price-high') {
-                  list.sort((a, b) => b.price.compareTo(a.price));
-                } else if (_sort == 'rating') {
-                  list.sort((a, b) => b.rating.compareTo(a.rating));
-                } else if (_sort == 'discount') {
-                  list.sort((a, b) => _discount(b).compareTo(_discount(a)));
-                }
-
+                final list = _visible(storeProducts);
                 final storeRating = reviewsState.valueOrNull;
                 final rating = double.tryParse(
                       '${storeRating?['average'] ?? store.rating}',
@@ -261,10 +196,6 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                       '${storeRating?['count'] ?? store.reviewCount}',
                     ) ??
                     store.reviewCount;
-                final reviews = (storeRating?['reviews'] as List? ?? const [])
-                    .whereType<Map>()
-                    .map((review) => Map<String, dynamic>.from(review))
-                    .toList();
 
                 return RefreshIndicator(
                   onRefresh: () async {
@@ -287,11 +218,19 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                   SizedBox(
                                     width: 50,
                                     height: 42,
-                                    child: IconButton.filledTonal(
-                                      onPressed: () => context.canPop()
-                                          ? context.pop()
-                                          : context.go('/stores'),
-                                      icon: const Icon(Icons.arrow_forward, size: 23),
+                                    child: Material(
+                                      color: dark ? spikeDarkPanel : spikeField,
+                                      borderRadius: BorderRadius.circular(22),
+                                      child: InkWell(
+                                        onTap: () => context.canPop()
+                                            ? context.pop()
+                                            : context.go('/stores'),
+                                        borderRadius: BorderRadius.circular(22),
+                                        child: const Icon(
+                                          LucideIcons.arrowRight,
+                                          size: 23,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 9),
@@ -304,12 +243,17 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                       ),
                                       child: TextField(
                                         onChanged: (value) =>
-                                            setState(() => _query = value.trim()),
+                                            setState(() => _query = value),
                                         decoration: InputDecoration(
                                           hintText: 'ابحث داخل ${store.name}',
-                                          prefixIcon: const Icon(Icons.search, size: 20),
+                                          prefixIcon: const Icon(
+                                            LucideIcons.search,
+                                            size: 20,
+                                          ),
                                           border: InputBorder.none,
-                                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            vertical: 10,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -326,20 +270,23 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                     width: double.infinity,
                                     child: store.bannerUrl == null
                                         ? Container(
-                                            color: dark ? Colors.white10 : Colors.black12,
+                                            color: dark
+                                                ? Colors.white10
+                                                : Colors.black12,
                                           )
-                                        : CachedNetworkImage(
-                                            imageUrl: store.bannerUrl!,
+                                        : SpikeNetworkImage(
+                                            url: store.bannerUrl,
                                             fit: BoxFit.cover,
-                                            errorWidget: (_, __, ___) => Container(
-                                              color: dark ? Colors.white10 : Colors.black12,
-                                            ),
+                                            width: double.infinity,
+                                            height: 185,
                                           ),
                                   ),
                                   Transform.translate(
                                     offset: const Offset(0, -24),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 17),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 17,
+                                      ),
                                       child: Row(
                                         crossAxisAlignment: CrossAxisAlignment.end,
                                         children: [
@@ -356,17 +303,14 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                             ),
                                             child: store.logoUrl == null
                                                 ? const Icon(
-                                                    Icons.storefront_outlined,
+                                                    LucideIcons.store,
                                                     color: Colors.black,
                                                   )
-                                                : CachedNetworkImage(
-                                                    imageUrl: store.logoUrl!,
-                                                    fit: BoxFit.contain,
-                                                    errorWidget: (_, __, ___) =>
-                                                        const Icon(
-                                                      Icons.storefront_outlined,
-                                                      color: Colors.black,
-                                                    ),
+                                                : SpikeNetworkImage(
+                                                    url: store.logoUrl,
+                                                    fit: BoxFit.cover,
+                                                    width: 70,
+                                                    height: 70,
                                                   ),
                                           ),
                                           const SizedBox(width: 12),
@@ -374,27 +318,38 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                             child: Padding(
                                               padding: const EdgeInsets.only(bottom: 4),
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
-                                                  Text(
-                                                    store.name,
-                                                    style: const TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
+                                                  Row(
+                                                    children: [
+                                                      Flexible(
+                                                        child: Text(
+                                                          store.name,
+                                                          overflow:
+                                                              TextOverflow.ellipsis,
+                                                          style: const TextStyle(
+                                                            fontSize: 18,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      if (store.isVerified) ...[
+                                                        const SizedBox(width: 4),
+                                                        const Icon(
+                                                          LucideIcons.badgeCheck,
+                                                          size: 15,
+                                                        ),
+                                                      ],
+                                                    ],
                                                   ),
                                                   const SizedBox(height: 3),
-                                                  if ((store.categoryName ?? '').isNotEmpty)
-                                                    Text(
-                                                      store.categoryName!,
-                                                      style: const TextStyle(
-                                                        fontSize: 9,
-                                                        color: spikeMuted,
-                                                      ),
-                                                    ),
-                                                  const Text(
-                                                    'متجر موثوق على Spike',
-                                                    style: TextStyle(
+                                                  Text(
+                                                    store.isVerified
+                                                        ? 'متجر موثوق على Spike'
+                                                        : 'متجر على Spike',
+                                                    style: const TextStyle(
                                                       fontSize: 9,
                                                       color: spikeMuted,
                                                     ),
@@ -403,44 +358,61 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                               ),
                                             ),
                                           ),
-                                          Container(
-                                            margin: const EdgeInsets.only(bottom: 4),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 7,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: dark
-                                                  ? Colors.white10
-                                                  : const Color(0xFFF1F1F1),
-                                              borderRadius: BorderRadius.circular(18),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.star_rounded,
-                                                  size: 14,
-                                                  color: Color(0xFFF5B400),
+                                          Material(
+                                            color: _followed
+                                                ? (dark
+                                                    ? Colors.white
+                                                    : Colors.black)
+                                                : (dark
+                                                    ? Colors.white10
+                                                    : const Color(0xFFF1F1F1)),
+                                            borderRadius:
+                                                BorderRadius.circular(18),
+                                            child: InkWell(
+                                              onTap: () => setState(
+                                                () => _followed = !_followed,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(18),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 8,
                                                 ),
-                                                const SizedBox(width: 2),
-                                                Text(
-                                                  reviewsCount > 0
-                                                      ? rating.toStringAsFixed(1)
-                                                      : '—',
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                if (reviewsCount > 0)
-                                                  Text(
-                                                    ' ($reviewsCount)',
-                                                    style: const TextStyle(
-                                                      fontSize: 9,
-                                                      color: spikeMuted,
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      _followed
+                                                          ? LucideIcons.check
+                                                          : LucideIcons.plus,
+                                                      size: 17,
+                                                      color: _followed
+                                                          ? (dark
+                                                              ? Colors.black
+                                                              : Colors.white)
+                                                          : null,
                                                     ),
-                                                  ),
-                                              ],
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      _followed
+                                                          ? 'متابَع'
+                                                          : 'متابعة',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: _followed
+                                                            ? (dark
+                                                                ? Colors.black
+                                                                : Colors.white)
+                                                            : null,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -448,19 +420,39 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                     ),
                                   ),
                                   Transform.translate(
-                                    offset: const Offset(0, -12),
+                                    offset: const Offset(0, -10),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 17),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 17,
+                                      ),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceAround,
                                         children: [
-                                          _stat('${storeProducts.length}', 'منتجات'),
-                                          _stat('$reviewsCount', 'مراجعات'),
                                           _stat(
-                                            reviewsCount > 0
-                                                ? rating.toStringAsFixed(1)
-                                                : '—',
-                                            'التقييم',
+                                            '${storeProducts.length}',
+                                            'منتجات',
+                                          ),
+                                          _stat('$reviewsCount', 'مراجعات'),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                reviewsCount > 0
+                                                    ? rating.toStringAsFixed(1)
+                                                    : '—',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 3),
+                                              const Icon(
+                                                Icons.star_rounded,
+                                                size: 15,
+                                                color: Color(0xFFF5B400),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -470,148 +462,28 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(17, 14, 17, 0),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Material(
-                                  color: dark
-                                      ? spikeDarkPanel
-                                      : const Color(0xFFE8E8E8),
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: InkWell(
-                                    onTap: () => _showFilters(categories),
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: const Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 9,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(LucideIcons.slidersHorizontal, size: 16),
-                                          SizedBox(width: 6),
-                                          Text(
-                                            'ترتيب حسب',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            if (reviews.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(17, 16, 17, 0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text(
-                                          'تقييمات العملاء',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${reviews.length} تعليق',
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            color: spikeMuted,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    ...reviews.take(3).map((review) {
-                                      final stars = int.tryParse(
-                                            '${review['rating'] ?? 0}',
-                                          ) ??
-                                          0;
-                                      final comment =
-                                          '${review['comment'] ?? ''}'.trim();
-                                      return Container(
-                                        margin: const EdgeInsets.only(bottom: 8),
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: dark ? spikeDarkPanel : spikePanel,
-                                          borderRadius: BorderRadius.circular(16),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    '${review['name'] ?? 'عميل'}',
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Row(
-                                                  children: List.generate(
-                                                    5,
-                                                    (index) => Icon(
-                                                      Icons.star_rounded,
-                                                      size: 14,
-                                                      color: index < stars
-                                                          ? const Color(0xFFF5B400)
-                                                          : Theme.of(context)
-                                                              .colorScheme
-                                                              .onSurface
-                                                              .withValues(alpha: .15),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            if (comment.isNotEmpty)
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 8),
-                                                child: Text(
-                                                  comment,
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
-                                                    height: 1.45,
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      );
-                                    }),
-                                  ],
-                                ),
-                              ),
-                            Padding(
                               padding: const EdgeInsets.fromLTRB(17, 16, 17, 12),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
-                                    'منتجات المتجر',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
+                                  const Expanded(
+                                    child: Text(
+                                      'منتجات المتجر',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
-                                  Text(
-                                    '${list.length} منتج',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: spikeMuted,
-                                    ),
+                                  _toolButton(
+                                    icon: LucideIcons.share2,
+                                    tooltip: 'مشاركة',
+                                    onTap: () => Share.share(store.name),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _toolButton(
+                                    icon: LucideIcons.arrowUpDown,
+                                    tooltip: 'ترتيب حسب',
+                                    onTap: _showSort,
                                   ),
                                 ],
                               ),
@@ -621,7 +493,12 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                       ),
                       if (list.isEmpty)
                         const SliverToBoxAdapter(
-                          child: SpikeEmptyState(message: 'لا توجد منتجات مطابقة'),
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 18),
+                            child: SpikeEmptyState(
+                              message: 'لا توجد منتجات مطابقة',
+                            ),
+                          ),
                         )
                       else
                         SliverPadding(
@@ -640,14 +517,16 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                               return SpikeProductCard(
                                 product: product,
                                 isFavorite: favorites.contains(product.id),
-                                onTap: () => context.push('/product/${product.id}'),
+                                onTap: () =>
+                                    context.push('/product/${product.id}'),
                                 onAdd: product.purchasable &&
                                         product.cheapestVariant != null
                                     ? () => _add(product)
                                     : null,
-                                onFavorite: _favoriteBusy.contains(product.id)
-                                    ? null
-                                    : () => _toggleFavorite(product),
+                                onFavorite:
+                                    _favoriteBusy.contains(product.id)
+                                        ? null
+                                        : () => _toggleFavorite(product),
                               );
                             },
                           ),
@@ -663,11 +542,38 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
     );
   }
 
+  Widget _toolButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: SizedBox(
+            width: 39,
+            height: 39,
+            child: Icon(icon, size: 18),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _stat(String value, String label) => Column(
         children: [
           Text(
             value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -675,75 +581,5 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
             style: const TextStyle(fontSize: 9, color: spikeMuted),
           ),
         ],
-      );
-}
-
-class _FilterGroup extends StatelessWidget {
-  const _FilterGroup({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Container(
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? spikeDarkPanel
-                : spikePanel,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 9),
-              Wrap(spacing: 8, runSpacing: 8, children: children),
-            ],
-          ),
-        ),
-      );
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip(this.label, this.selected, this.onTap);
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(17),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          decoration: BoxDecoration(
-            color: selected
-                ? spikeRed
-                : (Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF24252A)
-                    : const Color(0xFFF1F1F1)),
-            borderRadius: BorderRadius.circular(17),
-            border: Border.all(
-              color: selected ? spikeRed : Theme.of(context).dividerColor,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              color: selected ? Theme.of(context).colorScheme.surface : null,
-            ),
-          ),
-        ),
       );
 }
