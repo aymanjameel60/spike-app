@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
 import '../../../app/providers.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key, required this.mode, this.afterLoginRoute = '/profile', this.referralCode = ''});
+  const AuthScreen({
+    super.key,
+    required this.mode,
+    this.afterLoginRoute = '/profile',
+    this.referralCode = '',
+  });
+
   final String mode;
   final String afterLoginRoute;
   final String referralCode;
@@ -28,7 +35,28 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool get signup => widget.mode == 'signup';
 
   static const governorates = [
-    'أمانة العاصمة','صنعاء','عدن','تعز','الحديدة','إب','ذمار','حضرموت','لحج','أبين','الضالع','البيضاء','مأرب','الجوف','صعدة','حجة','المحويت','عمران','ريمة','شبوة','المهرة','سقطرى'
+    'أمانة العاصمة',
+    'صنعاء',
+    'عدن',
+    'تعز',
+    'الحديدة',
+    'إب',
+    'ذمار',
+    'حضرموت',
+    'لحج',
+    'أبين',
+    'الضالع',
+    'البيضاء',
+    'مأرب',
+    'الجوف',
+    'صعدة',
+    'حجة',
+    'المحويت',
+    'عمران',
+    'ريمة',
+    'شبوة',
+    'المهرة',
+    'سقطرى',
   ];
 
   @override
@@ -49,7 +77,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Future<void> _submit() async {
     if (_busy) return;
     final phone = _phone.text.replaceAll(RegExp(r'\D'), '');
-    if (phone.isEmpty || _password.text.isEmpty || (signup && _name.text.trim().isEmpty)) {
+    if (phone.isEmpty ||
+        _password.text.isEmpty ||
+        (signup && _name.text.trim().isEmpty)) {
       showSpikeToast(context, 'أكمل الحقول المطلوبة');
       return;
     }
@@ -92,8 +122,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       ref.invalidate(shareWinMeProvider);
       ref.invalidate(shareWinPublicProvider);
       if (mounted) context.go(widget.afterLoginRoute);
-    } catch (e) {
-      if (mounted) showSpikeToast(context, e.toString());
+    } catch (error) {
+      if (mounted) showSpikeToast(context, error.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -102,134 +132,269 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurface.withValues(alpha: .6);
-    final fill = Theme.of(context).brightness == Brightness.dark ? spikeDarkPanel : const Color(0xFFE7E7E7);
+    final fill = Theme.of(context).brightness == Brightness.dark
+        ? spikeDarkPanel
+        : const Color(0xFFE7E7E7);
+
     return Scaffold(
       body: SafeArea(
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(SpikeSpacing.page, SpikeSpacing.sm, SpikeSpacing.page, 0),
-            child: SizedBox(
-              height: 60,
-              child: Stack(alignment: Alignment.center, children: [
-                Text(signup ? 'تسجيل الحساب' : 'تسجيل الدخول', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(onPressed: () => context.canPop() ? context.pop() : context.go('/profile'), icon: const Icon(LucideIcons.arrowRight, size: 22)),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                SpikeSpacing.page,
+                SpikeSpacing.sm,
+                SpikeSpacing.page,
+                0,
+              ),
+              child: SizedBox(
+                height: 60,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Text(
+                      signup ? 'تسجيل الحساب' : 'تسجيل الدخول',
+                      style: const TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        onPressed: () => context.canPop()
+                            ? context.pop()
+                            : context.go('/profile'),
+                        icon: const Icon(LucideIcons.arrowRight, size: 22),
+                      ),
+                    ),
+                  ],
                 ),
-              ]),
+              ),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(SpikeSpacing.page, SpikeSpacing.sm, SpikeSpacing.page, SpikeSpacing.xl),
-              children: [
-                if (signup) ...[
-                  const Text('بيانات الحساب', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 10),
-                  _field(_name, 'الاسم الكامل', LucideIcons.user, fill),
-                  const SizedBox(height: 12),
-                  _select(
-                    value: _gender,
-                    hint: 'نوع الجنس',
-                    icon: LucideIcons.users,
-                    fill: fill,
-                    items: const {'male': 'ذكر', 'female': 'أنثى'},
-                    onChanged: (v) => setState(() => _gender = v ?? ''),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  SpikeSpacing.page,
+                  SpikeSpacing.sm,
+                  SpikeSpacing.page,
+                  SpikeSpacing.xl,
+                ),
+                children: [
+                  if (signup) ...[
+                    _field(
+                      _name,
+                      'الاسم الكامل',
+                      LucideIcons.user,
+                      fill,
+                    ),
+                    const SizedBox(height: 12),
+                    _select(
+                      value: _gender,
+                      hint: 'اختر الجنس',
+                      icon: LucideIcons.users,
+                      fill: fill,
+                      items: const {'male': 'ذكر', 'female': 'أنثى'},
+                      onChanged: (value) =>
+                          setState(() => _gender = value ?? ''),
+                    ),
+                    const SizedBox(height: 12),
+                    _readonly('اليمن', LucideIcons.flag, fill),
+                    const SizedBox(height: 12),
+                    _select(
+                      value: _governorate,
+                      hint: 'اختر المحافظة / المدينة',
+                      icon: LucideIcons.mapPin,
+                      fill: fill,
+                      items: {for (final g in governorates) g: g},
+                      onChanged: (value) =>
+                          setState(() => _governorate = value ?? ''),
+                    ),
+                    const SizedBox(height: 12),
+                    _field(
+                      _referral,
+                      'كود الدعوة - اختياري',
+                      LucideIcons.gift,
+                      fill,
+                    ),
+                    if (_referral.text.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                        child: Text(
+                          'تمت إضافة كود الدعوة من رابط المشاركة تلقائيًا.',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: muted,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                  ],
+                  _field(
+                    _phone,
+                    'رقم الجوال - مثال: 77xxxxxxx',
+                    LucideIcons.phone,
+                    fill,
+                    keyboard: TextInputType.phone,
                   ),
                   const SizedBox(height: 12),
-                  _readonly('البلد - اليمن', LucideIcons.flag, fill),
-                  const SizedBox(height: 12),
-                  _select(
-                    value: _governorate,
-                    hint: 'المدينة / المحافظة',
-                    icon: LucideIcons.mapPin,
-                    fill: fill,
-                    items: {for (final g in governorates) g: g},
-                    onChanged: (v) => setState(() => _governorate = v ?? ''),
+                  _field(
+                    _password,
+                    'كلمة المرور${signup ? ' - 8 أحرف على الأقل' : ''}',
+                    LucideIcons.lockKeyhole,
+                    fill,
+                    obscure: true,
                   ),
-                  const SizedBox(height: 12),
-                  _field(_referral, 'كود الدعوة - اختياري', LucideIcons.gift, fill),
-                  if (_referral.text.isNotEmpty)
+                  if (signup)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                      child: Text('تمت إضافة كود الدعوة من رابط المشاركة تلقائيًا.', style: TextStyle(fontSize: 10, color: muted, height: 1.4)),
+                      child: Text(
+                        '* يجب أن لا تقل كلمة المرور عن 8 أحرف',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: muted,
+                          height: 1.4,
+                        ),
+                      ),
+                    )
+                  else
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: () => context.push('/password-reset'),
+                        child: const Text(
+                          'هل نسيت كلمة المرور؟',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
                     ),
-                  const SizedBox(height: 18),
-                  const Text('بيانات الدخول', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 43,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: spikeRed,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                      ),
+                      onPressed: _busy ? null : _submit,
+                      child: _busy
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              signup ? 'تسجيل الحساب' : 'تسجيل الدخول',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.go(
+                      '${signup ? '/login' : '/signup'}?next=${Uri.encodeComponent(widget.afterLoginRoute)}${_referral.text.isNotEmpty ? '&ref=${Uri.encodeComponent(_referral.text)}' : ''}',
+                    ),
+                    child: Text(
+                      signup
+                          ? 'تمتلك حساب؟ قم بتسجيل الدخول من هنا'
+                          : 'لا تملك حساباً؟ قم بإنشاء حساب من هنا',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
                 ],
-                _field(_phone, 'رقم الجوال - مثال: 77xxxxxxx', LucideIcons.phone, fill, keyboard: TextInputType.phone),
-                const SizedBox(height: 12),
-                _field(_password, 'كلمة المرور${signup ? ' - 8 أحرف على الأقل' : ''}', LucideIcons.lockKeyhole, fill, obscure: true),
-                if (signup)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                    child: Text('* يجب أن لا تقل كلمة المرور عن 8 أحرف', style: TextStyle(fontSize: 10, color: muted, height: 1.4)),
-                  )
-                else
-                  Align(
-                    alignment: Alignment.center,
-                    child: TextButton(onPressed: () => context.push('/password-reset'), child: const Text('هل نسيت كلمة المرور؟', style: TextStyle(fontSize: 12))),
-                  ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 43,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(backgroundColor: spikeRed, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
-                    onPressed: _busy ? null : _submit,
-                    child: _busy
-                        ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text(signup ? 'تسجيل الحساب' : 'تسجيل الدخول', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => context.go('${signup ? '/login' : '/signup'}?next=${Uri.encodeComponent(widget.afterLoginRoute)}${_referral.text.isNotEmpty ? '&ref=${Uri.encodeComponent(_referral.text)}' : ''}'),
-                  child: Text(signup ? 'تمتلك حساب؟ قم بتسجيل الدخول من هنا' : 'لا تملك حساباً؟ قم بإنشاء حساب من هنا', style: const TextStyle(fontSize: 12)),
-                ),
-              ],
+              ),
             ),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _field(TextEditingController c, String hint, IconData icon, Color fill, {bool obscure = false, TextInputType? keyboard}) => SizedBox(
+  Widget _field(
+    TextEditingController controller,
+    String hint,
+    IconData icon,
+    Color fill, {
+    bool obscure = false,
+    TextInputType? keyboard,
+  }) =>
+      SizedBox(
         height: 43,
         child: TextField(
-          controller: c,
+          controller: controller,
           obscureText: obscure,
           keyboardType: keyboard,
-          textCapitalization: hint.contains('كود الدعوة') ? TextCapitalization.characters : TextCapitalization.none,
+          textCapitalization: hint.contains('كود الدعوة')
+              ? TextCapitalization.characters
+              : TextCapitalization.none,
           decoration: _decoration(hint, icon, fill),
         ),
       );
 
   Widget _readonly(String value, IconData icon, Color fill) => SizedBox(
         height: 43,
-        child: TextFormField(initialValue: value, readOnly: true, decoration: _decoration(value, icon, fill)),
+        child: TextFormField(
+          initialValue: value,
+          readOnly: true,
+          decoration: _decoration(value, icon, fill),
+        ),
       );
 
-  Widget _select({required String value, required String hint, required IconData icon, required Color fill, required Map<String, String> items, required ValueChanged<String?> onChanged}) => SizedBox(
+  Widget _select({
+    required String value,
+    required String hint,
+    required IconData icon,
+    required Color fill,
+    required Map<String, String> items,
+    required ValueChanged<String?> onChanged,
+  }) =>
+      SizedBox(
         height: 43,
         child: DropdownButtonFormField<String>(
           initialValue: value.isEmpty ? null : value,
           isExpanded: true,
           decoration: _decoration(hint, icon, fill),
-          items: items.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+          items: items.entries
+              .map(
+                (entry) => DropdownMenuItem(
+                  value: entry.key,
+                  child: Text(entry.value),
+                ),
+              )
+              .toList(),
           onChanged: onChanged,
         ),
       );
 
-  InputDecoration _decoration(String hint, IconData icon, Color fill) => InputDecoration(
+  InputDecoration _decoration(String hint, IconData icon, Color fill) =>
+      InputDecoration(
         hintText: hint,
         filled: true,
         fillColor: fill,
-        border: OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.circular(22)),
-        enabledBorder: OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.circular(22)),
-        focusedBorder: OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.circular(22)),
+        border: OutlineInputBorder(
+          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(22),
+        ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-        suffixIcon: Padding(padding: const EdgeInsetsDirectional.only(end: 8), child: Icon(icon, size: 20)),
+        suffixIcon: Padding(
+          padding: const EdgeInsetsDirectional.only(end: 8),
+          child: Icon(icon, size: 20),
+        ),
         suffixIconConstraints: const BoxConstraints(minWidth: 42),
       );
 }
