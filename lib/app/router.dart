@@ -20,7 +20,6 @@ import '../features/home/presentation/home_section_screen.dart';
 import '../features/offers/presentation/offers_screen.dart';
 import '../features/orders/presentation/orders_screen.dart';
 import '../features/orders/presentation/returns_refunds_screen.dart';
-import '../features/profile/presentation/delete_account_screen.dart';
 import '../features/profile/presentation/personal_data_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/privacy_screen.dart';
@@ -51,7 +50,6 @@ final appRouter = GoRouter(
         GoRoute(path: '/favorites', pageBuilder: (_, state) => _page(state, const FavoritesScreen())),
         GoRoute(path: '/wallet', pageBuilder: (_, state) => _page(state, const WalletScreen())),
         GoRoute(path: '/vendor-registration', pageBuilder: (_, state) => _page(state, const VendorRegistrationScreen())),
-        GoRoute(path: '/delete-account', pageBuilder: (_, state) => _page(state, const DeleteAccountScreen())),
         GoRoute(path: '/checkout', pageBuilder: (_, state) => _page(state, const CheckoutScreen())),
         GoRoute(path: '/orders', pageBuilder: (_, state) => _page(state, const OrdersScreen())),
         GoRoute(path: '/order/:id', pageBuilder: (_, state) => _page(state, OrderDetailsScreen(id: state.pathParameters['id']!))),
