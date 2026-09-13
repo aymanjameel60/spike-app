@@ -63,19 +63,29 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              for (final option in options)
-                RadioListTile<String>(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  value: option.$1,
-                  groupValue: _sort,
-                  title: Text(option.$2, style: const TextStyle(fontSize: 14)),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _sort = value);
-                    Navigator.pop(sheetContext);
-                  },
+              RadioGroup<String>(
+                groupValue: _sort,
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _sort = value);
+                  Navigator.pop(sheetContext);
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final option in options)
+                      RadioListTile<String>(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: option.$1,
+                        title: Text(
+                          option.$2,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),
