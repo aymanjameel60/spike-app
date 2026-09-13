@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
 import '../core/theme.dart';
 import '../core/widgets/spike_network_image.dart';
 import '../models/product.dart';
 
-class SpikeProductCard extends StatelessWidget {
+class SpikeProductCard extends StatefulWidget {
   const SpikeProductCard({
     super.key,
     required this.product,
@@ -19,6 +20,39 @@ class SpikeProductCard extends StatelessWidget {
   final VoidCallback? onTap, onAdd, onFavorite, onStore;
   final bool isFavorite;
 
+  @override
+  State<SpikeProductCard> createState() => _SpikeProductCardState();
+}
+
+class _SpikeProductCardState extends State<SpikeProductCard> {
+  late final PageController _galleryController;
+  int _galleryIndex = 0;
+
+  ProductModel get product => widget.product;
+
+  @override
+  void initState() {
+    super.initState();
+    _galleryController = PageController();
+  }
+
+  @override
+  void didUpdateWidget(covariant SpikeProductCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.product.id != widget.product.id) {
+      _galleryIndex = 0;
+      if (_galleryController.hasClients) {
+        _galleryController.jumpToPage(0);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _galleryController.dispose();
+    super.dispose();
+  }
+
   String _money(double amount, String currency) {
     final c = currency.toUpperCase();
     if (c == 'USD') return '\$${amount.toStringAsFixed(2)}';
@@ -26,6 +60,19 @@ class SpikeProductCard extends StatelessWidget {
     if (c.startsWith('YER')) return '${amount.round()} ر.ي';
     if (c == 'TRY') return '${amount.toStringAsFixed(2)} ₺';
     return '${amount.toStringAsFixed(2)} $c';
+  }
+
+  List<String> _gallery() {
+    final values = <String>[];
+    for (final value in product.images) {
+      final normalized = value.trim();
+      if (normalized.isNotEmpty && !values.contains(normalized)) {
+        values.add(normalized);
+      }
+    }
+    final primary = product.imageUrl?.trim() ?? '';
+    if (primary.isNotEmpty && !values.contains(primary)) values.insert(0, primary);
+    return values;
   }
 
   @override
@@ -37,6 +84,7 @@ class SpikeProductCard extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = dark ? spikeDarkPanel : spikeProductCard;
     final imageColor = dark ? Theme.of(context).colorScheme.surface : Colors.white;
+    final gallery = _gallery();
 
     return SizedBox(
       width: 154,
@@ -45,7 +93,7 @@ class SpikeProductCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(SpikeRadius.card),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onTap,
+          onTap: widget.onTap,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -59,22 +107,40 @@ class SpikeProductCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(SpikeRadius.card),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: SpikeNetworkImage(
-                      url: product.imageUrl,
-                      fit: BoxFit.contain,
-                      width: double.infinity,
-                      height: 134,
-                      memCacheWidth: 320,
-                      memCacheHeight: 280,
-                    ),
+                    child: gallery.length <= 1
+                        ? SpikeNetworkImage(
+                            url: gallery.isEmpty ? product.imageUrl : gallery.first,
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            height: 134,
+                            memCacheWidth: 320,
+                            memCacheHeight: 280,
+                          )
+                        : PageView.builder(
+                            controller: _galleryController,
+                            itemCount: gallery.length,
+                            onPageChanged: (index) {
+                              if (mounted) setState(() => _galleryIndex = index);
+                            },
+                            itemBuilder: (_, index) => SpikeNetworkImage(
+                              url: gallery[index],
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                              height: 134,
+                              memCacheWidth: 320,
+                              memCacheHeight: 280,
+                            ),
+                          ),
                   ),
                   Positioned(
                     top: 9,
                     right: 9,
                     child: _CircleButton(
-                      icon: isFavorite ? Icons.favorite_rounded : LucideIcons.heart,
-                      onTap: onFavorite,
-                      foreground: isFavorite ? spikeRed : Colors.black,
+                      icon: widget.isFavorite
+                          ? Icons.favorite_rounded
+                          : LucideIcons.heart,
+                      onTap: widget.onFavorite,
+                      foreground: widget.isFavorite ? spikeRed : Colors.black,
                     ),
                   ),
                   if (discount > 0)
@@ -82,14 +148,22 @@ class SpikeProductCard extends StatelessWidget {
                       top: 10,
                       left: 10,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: spikeRed,
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
                           '-$discount%',
-                          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800, height: 1),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
+                          ),
                         ),
                       ),
                     ),
@@ -98,22 +172,53 @@ class SpikeProductCard extends StatelessWidget {
                     bottom: 8,
                     child: _CircleButton(
                       icon: LucideIcons.plus,
-                      onTap: product.purchasable ? onAdd : null,
-                      background: product.purchasable ? Colors.black : Colors.black26,
+                      onTap: product.purchasable ? widget.onAdd : null,
+                      background:
+                          product.purchasable ? Colors.black : Colors.black26,
                       foreground: Colors.white,
                       border: false,
                     ),
                   ),
+                  if (gallery.length > 1)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 10,
+                      child: IgnorePointer(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            gallery.length,
+                            (index) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              width: index == _galleryIndex ? 13 : 6,
+                              height: 6,
+                              margin: const EdgeInsets.symmetric(horizontal: 2),
+                              decoration: BoxDecoration(
+                                color: index == _galleryIndex
+                                    ? const Color(0xFF9C9C9C)
+                                    : const Color(0xFFD1D1D1),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 7),
                 child: Text(
                   product.name,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.45),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
                 ),
               ),
               Padding(
@@ -127,10 +232,13 @@ class SpikeProductCard extends StatelessWidget {
                                   _money(current, product.currency),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 5),
+                              const SizedBox(width: 6),
                               Flexible(
                                 child: Text(
                                   _money(old, product.currency),
@@ -150,12 +258,19 @@ class SpikeProductCard extends StatelessWidget {
                         : Text(
                             _money(current, product.currency),
                             textAlign: TextAlign.right,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
                           ))
                     : const Text(
                         'السعر غير متاح',
                         textAlign: TextAlign.right,
-                        style: TextStyle(fontSize: 11, color: spikeMuted, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: spikeMuted,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
               ),
               const SizedBox(height: 7),
@@ -168,24 +283,45 @@ class SpikeProductCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.star_rounded, size: 15, color: Color(0xFFF5B400)),
+                          const Icon(
+                            Icons.star_rounded,
+                            size: 15,
+                            color: Color(0xFFF5B400),
+                          ),
                           const SizedBox(width: 3),
                           Text(
-                            product.reviewCount > 0 ? product.rating.toStringAsFixed(1) : '—',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            product.reviewCount > 0
+                                ? product.rating.toStringAsFixed(1)
+                                : '—',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           if (product.reviewCount > 0)
-                            Text(' (${product.reviewCount})', style: const TextStyle(fontSize: 10, color: spikeMuted, fontWeight: FontWeight.w700)),
+                            Text(
+                              ' (${product.reviewCount})',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: spikeMuted,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                         ],
                       ),
                       Flexible(
                         child: GestureDetector(
-                          onTap: onStore,
+                          onTap: widget.onStore,
                           behavior: HitTestBehavior.opaque,
                           child: Text(
                             product.storeName,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: spikeMuted, fontSize: 10, fontWeight: FontWeight.w700),
+                            maxLines: 1,
+                            style: const TextStyle(
+                              color: spikeMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
@@ -219,12 +355,20 @@ class _CircleButton extends StatelessWidget {
   Widget build(BuildContext context) => Material(
         color: background,
         shape: CircleBorder(
-          side: BorderSide(color: border && onTap != null ? const Color(0xFFE5E5E5) : Colors.transparent),
+          side: BorderSide(
+            color: border && onTap != null
+                ? const Color(0xFFE5E5E5)
+                : Colors.transparent,
+          ),
         ),
         child: InkWell(
           onTap: onTap,
           customBorder: const CircleBorder(),
-          child: SizedBox(width: 35, height: 35, child: Icon(icon, size: 19, color: foreground)),
+          child: SizedBox(
+            width: 35,
+            height: 35,
+            child: Icon(icon, size: 19, color: foreground),
+          ),
         ),
       );
 }
