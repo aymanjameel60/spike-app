@@ -143,8 +143,8 @@ class HomeRepository {
     final home = results[4];
 
     // /categories is the single ordering contract. The backend already emits
-    // real categories in the exact Admin hierarchy order, so Flutter must not
-    // sort or rebuild that order locally.
+    // the exact Admin hierarchy order. Keep that sequence and only choose the
+    // root subset for the two root-category surfaces, exactly like the web.
     final normalizedCategories = categoriesRaw
         .whereType<Map>()
         .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e)))
@@ -157,8 +157,8 @@ class HomeRepository {
       final parsed = CategoryModel.fromJson(Map<String, dynamic>.from(rawMore));
       if (parsed.enabled) moreCategory = parsed;
     }
-    // Transitional compatibility with an older backend that still returned the
-    // explicit navigation tile inside categories. Do not infer it by its name.
+    // Compatibility with an older backend is explicit-metadata-only. Never
+    // infer the navigation tile from a translated display name.
     if (moreCategory == null) {
       for (final category in normalizedCategories) {
         if (category.showAsMore || category.actionType == 'all_categories') {
@@ -168,11 +168,15 @@ class HomeRepository {
       }
     }
 
-    final allCategories = normalizedCategories
-        .where((e) => !e.showAsMore && e.actionType != 'all_categories')
+    final rootCategories = normalizedCategories
+        .where((e) =>
+            e.isRoot &&
+            !e.showAsMore &&
+            e.actionType != 'all_categories')
         .toList();
+
     final categories = <CategoryModel>[
-      ...allCategories.take(moreCategory == null ? 8 : 7),
+      ...rootCategories.take(moreCategory == null ? 8 : 7),
       if (moreCategory != null) moreCategory,
     ];
 
@@ -212,7 +216,7 @@ class HomeRepository {
 
     return HomeData(
       categories: categories,
-      allCategories: allCategories,
+      allCategories: rootCategories,
       products: products,
       bestSellers: bestSellers,
       stores: stores,
