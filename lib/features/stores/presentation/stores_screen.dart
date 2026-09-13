@@ -1,13 +1,16 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+
 import '../../../app/providers.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
+import '../../../core/widgets/spike_network_image.dart';
 
 class StoresScreen extends ConsumerStatefulWidget {
   const StoresScreen({super.key});
+
   @override
   ConsumerState<StoresScreen> createState() => _StoresScreenState();
 }
@@ -15,31 +18,61 @@ class StoresScreen extends ConsumerStatefulWidget {
 class _StoresScreenState extends ConsumerState<StoresScreen> {
   String _query = '';
   String _sort = 'relevance';
-  double _minRating = 0;
 
-  void _showSort() {
-    showModalBottomSheet<void>(
+  Future<void> _showSort() async {
+    const options = <(String, String)>[
+      ('relevance', 'الأكثر صلة'),
+      ('rating', 'الأعلى تقييماً'),
+      ('reviews', 'الأكثر مراجعات'),
+      ('name', 'الاسم أبجدياً'),
+    ];
+
+    await showModalBottomSheet<void>(
       context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(17, 20, 17, 25),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('الترتيب حسب', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 18),
-              for (final option in const [
-                ('relevance', 'الأكثر صلة'),
-                ('rating', 'الأعلى تقييماً'),
-                ('reviews', 'الأكثر مراجعات'),
-                ('name', 'الاسم أبجدياً'),
-              ])
-                _SheetOption(
-                  label: option.$2,
-                  selected: _sort == option.$1,
-                  onTap: () {
-                    setState(() => _sort = option.$1);
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'الترتيب حسب',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      onTap: () => Navigator.pop(sheetContext),
+                      customBorder: const CircleBorder(),
+                      child: const SizedBox(
+                        width: 34,
+                        height: 34,
+                        child: Icon(LucideIcons.x, size: 19, color: Colors.black),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              for (final option in options)
+                RadioListTile<String>(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  value: option.$1,
+                  groupValue: _sort,
+                  title: Text(option.$2, style: const TextStyle(fontSize: 14)),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _sort = value);
                     Navigator.pop(sheetContext);
                   },
                 ),
@@ -50,274 +83,268 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     );
   }
 
-  void _showFilter() {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setLocal) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(17, 20, 17, 25),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text('فلترة المتاجر', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 18),
-                const Text('التقييم', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 10),
-                for (final r in const [0.0, 4.0, 4.5])
-                  _SheetOption(
-                    label: r == 0 ? 'كل التقييمات' : r == 4 ? '4 نجوم فأعلى' : '4.5 نجوم فأعلى',
-                    selected: _minRating == r,
-                    onTap: () {
-                      setLocal(() => _minRating = r);
-                      setState(() => _minRating = r);
-                    },
-                  ),
-                const SizedBox(height: 22),
-                SizedBox(
-                  height: 38,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(backgroundColor: spikeRed),
-                    onPressed: () => Navigator.pop(sheetContext),
-                    child: const Text('تطبيق الفلتر', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final storesState = ref.watch(storesProvider);
-    final productsState = ref.watch(allProductsProvider);
     final dark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('المتاجر', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
-        centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: 8),
-            child: TextButton(
-              onPressed: _showSort,
-              child: const Text('ترتيب حسب', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 17),
-            child: Container(
-              height: 42,
-              decoration: BoxDecoration(
-                color: dark ? spikeDarkPanel : spikeField,
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: TextField(
-                onChanged: (v) => setState(() => _query = v.trim()),
-                decoration: const InputDecoration(
-                  hintText: 'البحث عن متجر',
-                  prefixIcon: Icon(Icons.search, size: 20),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 15),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 17),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 38,
-                  height: 38,
-                  child: IconButton.filledTonal(onPressed: _showFilter, icon: const Icon(Icons.tune, size: 19)),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final r in const [0.0, 4.0, 4.5])
-                          Padding(
-                            padding: const EdgeInsetsDirectional.only(end: 7),
-                            child: ChoiceChip(
-                              label: Text(r == 0 ? 'الكل' : r == 4 ? '4+' : '4.5+', style: const TextStyle(fontSize: 10)),
-                              selected: _minRating == r,
-                              onSelected: (_) => setState(() => _minRating = r),
-                              showCheckmark: false,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                              side: BorderSide.none,
-                            ),
-                          ),
-                      ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            SizedBox(
+              height: 60,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 17),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 50,
+                      height: 40,
+                      child: Material(
+                        color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
+                        borderRadius: BorderRadius.circular(22),
+                        child: InkWell(
+                          onTap: () => context.canPop()
+                              ? context.pop()
+                              : context.go('/'),
+                          borderRadius: BorderRadius.circular(22),
+                          child: const Icon(LucideIcons.arrowRight, size: 23),
+                        ),
+                      ),
                     ),
+                    const Expanded(
+                      child: Text(
+                        'المتاجر',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 50,
+                      height: 40,
+                      child: Material(
+                        color: dark ? spikeDarkPanel : const Color(0xFFE8E8E8),
+                        borderRadius: BorderRadius.circular(22),
+                        child: InkWell(
+                          onTap: _showSort,
+                          borderRadius: BorderRadius.circular(22),
+                          child: const Tooltip(
+                            message: 'ترتيب حسب',
+                            child: Icon(LucideIcons.arrowUpDown, size: 18),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 17),
+              child: Container(
+                height: 42,
+                decoration: BoxDecoration(
+                  color: dark ? spikeDarkPanel : spikeField,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: TextField(
+                  onChanged: (value) => setState(() => _query = value.trim()),
+                  decoration: const InputDecoration(
+                    hintText: 'البحث عن متجر',
+                    prefixIcon: Icon(LucideIcons.search, size: 20),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 15),
-          Expanded(
-            child: storesState.when(
-              loading: () => const SpikeLoading(),
-              error: (e, _) => SpikeErrorState(message: e.toString(), onRetry: () => ref.invalidate(storesProvider)),
-              data: (stores) {
-                final allProducts = productsState.valueOrNull ?? const [];
-                final q = _query.toLowerCase();
-                final list = stores.where((s) {
-                  final matches = q.isEmpty ||
-                      s.name.toLowerCase().contains(q) ||
-                      allProducts.any((p) => p.storeId == s.id && (p.categoryName ?? '').toLowerCase().contains(q));
-                  return matches && s.rating >= _minRating;
-                }).toList();
+            const SizedBox(height: 15),
+            Expanded(
+              child: storesState.when(
+                loading: () => const SpikeLoading(),
+                error: (error, _) => SpikeErrorState(
+                  message: error.toString(),
+                  onRetry: () => ref.invalidate(storesProvider),
+                ),
+                data: (stores) {
+                  final q = _query.toLowerCase();
+                  final list = stores
+                      .where((store) =>
+                          q.isEmpty || store.name.toLowerCase().contains(q))
+                      .toList();
 
-                if (_sort == 'name') list.sort((a, b) => a.name.compareTo(b.name));
-                if (_sort == 'rating') list.sort((a, b) => b.rating.compareTo(a.rating));
-                if (_sort == 'reviews') list.sort((a, b) => b.reviewCount.compareTo(a.reviewCount));
-                if (list.isEmpty) return const SpikeEmptyState(message: 'لا توجد متاجر مطابقة للفلتر');
+                  if (_sort == 'name') {
+                    list.sort((a, b) => a.name.compareTo(b.name));
+                  } else if (_sort == 'rating') {
+                    list.sort((a, b) => b.rating.compareTo(a.rating));
+                  } else if (_sort == 'reviews') {
+                    list.sort((a, b) => b.reviewCount.compareTo(a.reviewCount));
+                  }
 
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    ref.invalidate(storesProvider);
-                    ref.invalidate(allProductsProvider);
-                    await ref.read(storesProvider.future);
-                  },
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(17, 0, 17, 24),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 14),
-                    itemBuilder: (context, i) {
-                      final store = list[i];
-                      return InkWell(
-                        onTap: () => context.push('/store/${store.id}'),
-                        borderRadius: BorderRadius.circular(24),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: dark ? spikeDarkPanel : spikePanel,
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Column(
-                            children: [
-                              SizedBox(
-                                height: 150,
-                                width: double.infinity,
-                                child: store.bannerUrl == null
-                                    ? Container(color: dark ? Colors.white10 : Colors.black12)
-                                    : CachedNetworkImage(
-                                        imageUrl: store.bannerUrl!,
-                                        fit: BoxFit.cover,
-                                        errorWidget: (_, __, ___) => Container(color: dark ? Colors.white10 : Colors.black12),
-                                      ),
-                              ),
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(minHeight: 82),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 58,
-                                        height: 58,
-                                        clipBehavior: Clip.antiAlias,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(color: const Color(0xFFEEEEEE)),
+                  if (list.isEmpty) {
+                    return const SpikeEmptyState(
+                      message: 'لا توجد متاجر مطابقة للفلتر',
+                    );
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(storesProvider);
+                      await ref.read(storesProvider.future);
+                    },
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(17, 0, 17, 24),
+                      itemCount: list.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 14),
+                      itemBuilder: (context, index) {
+                        final store = list[index];
+                        return InkWell(
+                          onTap: () => context.push('/store/${store.id}'),
+                          borderRadius: BorderRadius.circular(24),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: dark ? spikeDarkPanel : spikePanel,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
+                              children: [
+                                Stack(
+                                  children: [
+                                    SizedBox(
+                                      height: 150,
+                                      width: double.infinity,
+                                      child: store.bannerUrl == null
+                                          ? Container(
+                                              color: dark
+                                                  ? Colors.white10
+                                                  : Colors.black12,
+                                            )
+                                          : SpikeNetworkImage(
+                                              url: store.bannerUrl,
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              height: 150,
+                                            ),
+                                    ),
+                                    Positioned(
+                                      top: 10,
+                                      left: 10,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 9,
+                                          vertical: 6,
                                         ),
-                                        child: store.logoUrl == null
-                                            ? const Icon(Icons.storefront_outlined, size: 22, color: Colors.black)
-                                            : CachedNetworkImage(
-                                                imageUrl: store.logoUrl!,
-                                                fit: BoxFit.contain,
-                                                errorWidget: (_, __, ___) => const Icon(Icons.storefront_outlined, size: 22, color: Colors.black),
-                                              ),
-                                      ),
-                                      const SizedBox(width: 11),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: .62),
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Text(store.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                                            const SizedBox(height: 3),
-                                            Text(store.categoryName ?? '', style: const TextStyle(fontSize: 9, color: spikeMuted)),
+                                            Text(
+                                              store.reviewCount > 0
+                                                  ? store.rating.toStringAsFixed(1)
+                                                  : '—',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 3),
+                                            const Icon(
+                                              Icons.star_rounded,
+                                              size: 14,
+                                              color: Color(0xFFF5B400),
+                                            ),
                                           ],
                                         ),
                                       ),
-                                      Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Row(
+                                    ),
+                                  ],
+                                ),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(minHeight: 82),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 58,
+                                          height: 58,
+                                          clipBehavior: Clip.antiAlias,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: const Color(0xFFEEEEEE),
+                                            ),
+                                          ),
+                                          child: store.logoUrl == null
+                                              ? const Icon(
+                                                  LucideIcons.store,
+                                                  size: 22,
+                                                  color: Colors.black,
+                                                )
+                                              : SpikeNetworkImage(
+                                                  url: store.logoUrl,
+                                                  fit: BoxFit.cover,
+                                                  width: 58,
+                                                  height: 58,
+                                                ),
+                                        ),
+                                        const SizedBox(width: 11),
+                                        Expanded(
+                                          child: Row(
                                             children: [
-                                              const Icon(Icons.star_rounded, size: 14, color: Color(0xFFF5B400)),
-                                              const SizedBox(width: 2),
-                                              Text(store.reviewCount > 0 ? store.rating.toStringAsFixed(1) : '—', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                              if (store.reviewCount > 0) Text(' (${store.reviewCount})', style: const TextStyle(fontSize: 9, color: spikeMuted)),
+                                              Flexible(
+                                                child: Text(
+                                                  store.name,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (store.isVerified) ...[
+                                                const SizedBox(width: 4),
+                                                const Icon(
+                                                  LucideIcons.badgeCheck,
+                                                  size: 15,
+                                                ),
+                                              ],
                                             ],
                                           ),
-                                          const SizedBox(height: 5),
-                                          const Icon(Icons.arrow_back, size: 20, color: spikeMuted),
-                                        ],
-                                      ),
-                                    ],
+                                        ),
+                                        const Icon(
+                                          LucideIcons.arrowLeft,
+                                          size: 20,
+                                          color: spikeMuted,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
-}
-
-class _SheetOption extends StatelessWidget {
-  const _SheetOption({required this.label, required this.selected, required this.onTap});
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 48,
-          child: Row(
-            children: [
-              Expanded(child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-              Container(
-                width: 19,
-                height: 19,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Theme.of(context).colorScheme.onSurface, width: 1.5),
-                ),
-                child: selected
-                    ? Center(child: Container(width: 11, height: 11, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle)))
-                    : null,
-              ),
-            ],
-          ),
-        ),
-      );
 }
