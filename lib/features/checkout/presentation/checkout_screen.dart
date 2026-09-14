@@ -10,6 +10,11 @@ import '../../../core/widgets/async_state_widgets.dart';
 import '../../cart/data/cart_repository.dart';
 import '../data/commerce_repository.dart';
 
+bool _isSanaaCheckoutName(String value) {
+  final name = value.trim().replaceAll(RegExp('[أإآ]'), 'ا');
+  return name == 'صنعاء' || name == 'امانة العاصمة' || name == 'امانه العاصمه';
+}
+
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -31,6 +36,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool loading = true;
   bool busy = false;
 
+  bool get shippingOfficeAddress =>
+      address != null && !_isSanaaCheckoutName(address!.cityName);
+
   static const _supportedPaymentMethods = <String>{
     'transfer',
     'wallet',
@@ -45,7 +53,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Future<void> _refreshQuote() async {
-    if (address == null || cart == null || cart!.items.isEmpty) {
+    if (address == null ||
+        cart == null ||
+        cart!.items.isEmpty ||
+        shippingOfficeAddress) {
       quote = null;
       return;
     }
@@ -145,7 +156,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         address == null ||
         payment == null ||
         currency == null ||
-        quote == null) {
+        (!shippingOfficeAddress && quote == null)) {
       return;
     }
 
@@ -232,14 +243,32 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final panel = dark ? spikeDarkPanel : spikePanel;
     final cardColor = dark ? const Color(0xFF1D1D1D) : Colors.white;
     final hasAddress = address != null;
-    final ready =
-        hasAddress && payment != null && currency != null && quote != null && !busy;
-    final delivery =
-        quote == null ? null : quote!.shippingUsd * cart!.exchangeRateFromUsd;
+    final officeShipping = hasAddress && shippingOfficeAddress;
+    final ready = hasAddress &&
+        payment != null &&
+        currency != null &&
+        (officeShipping || quote != null) &&
+        !busy;
+    final delivery = officeShipping
+        ? null
+        : quote == null
+            ? null
+            : quote!.shippingUsd * cart!.exchangeRateFromUsd;
     final productsBeforeDiscount = cart!.originalSubtotal;
     final discount = cart!.saving.clamp(0, double.infinity).toDouble();
     final productsAfterDiscount = cart!.subtotal;
-    final grand = delivery == null ? null : productsAfterDiscount + delivery;
+    final grand = officeShipping
+        ? productsAfterDiscount
+        : delivery == null
+            ? null
+            : productsAfterDiscount + delivery;
+    final deliveryValue = officeShipping
+        ? 'يحددها مكتب الشحن'
+        : delivery == null
+            ? 'جاري الحساب...'
+            : delivery == 0
+                ? 'مجاني'
+                : _money(delivery, cart!.currencyCode);
 
     return Scaffold(
       body: SafeArea(
@@ -284,11 +313,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           ),
                         ),
                         Text(
-                          delivery == null
-                              ? 'جاري الحساب...'
-                              : delivery == 0
-                                  ? 'مجاني'
-                                  : _money(delivery, cart!.currencyCode),
+                          deliveryValue,
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -297,7 +322,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ],
                     ),
                   ),
-                  if (quote != null && quote!.quotes.isNotEmpty) ...[
+                  if (officeShipping) ...[
+                    const SizedBox(height: 8),
+                    const _ShippingOfficeInfoBanner(),
+                  ],
+                  if (!officeShipping && quote != null && quote!.quotes.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     ...quote!.quotes.map(
                       (q) => _ShippingLine(
@@ -428,11 +457,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ),
                         _InvoiceLine(
                           label: 'التوصيل',
-                          value: delivery == null
-                              ? 'جاري الحساب...'
-                              : delivery == 0
-                                  ? 'مجاني'
-                                  : _money(delivery, cart!.currencyCode),
+                          value: deliveryValue,
                         ),
                         Container(
                           constraints: const BoxConstraints(minHeight: 48),
@@ -467,9 +492,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'الإجمالي النهائي يعاد تثبيته من الخادم عند إنشاء الطلب.',
-                          style: TextStyle(fontSize: 9, color: spikeMuted),
+                        Text(
+                          officeShipping
+                              ? 'قيمة الشحن إلى المكتب تحددها شركة الشحن ولا تدخل ضمن إجمالي الطلب.'
+                              : 'الإجمالي النهائي يعاد تثبيته من الخادم عند إنشاء الطلب.',
+                          style: const TextStyle(fontSize: 9, color: spikeMuted),
                         ),
                       ],
                     ),
@@ -562,9 +589,7 @@ class _AddressButton extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  address == null
-                      ? 'اختر عنوان التوصيل'
-                      : address!.addressLine,
+                  address == null ? 'اختر عنوان التوصيل' : address!.cityName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -602,6 +627,46 @@ class _CheckoutBanner extends StatelessWidget {
           ),
         ),
       );
+}
+
+class _ShippingOfficeInfoBanner extends StatelessWidget {
+  const _ShippingOfficeInfoBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    const green = Color(0xFF176B36);
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 43),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFF163322) : const Color(0xFFDCEEE3),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            LucideIcons.info,
+            size: 17,
+            color: dark ? const Color(0xFF8FD4AA) : green,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'التوصيل يتم إلى مكاتب الشحن المتوفرة في المحافظة.',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                height: 1.5,
+                color: dark ? const Color(0xFF8FD4AA) : green,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PaymentChoice extends StatelessWidget {
