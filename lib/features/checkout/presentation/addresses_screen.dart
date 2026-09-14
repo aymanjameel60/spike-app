@@ -8,6 +8,11 @@ import '../../../core/theme.dart';
 import '../../../core/widgets/async_state_widgets.dart';
 import '../data/commerce_repository.dart';
 
+bool _isSanaaName(String value) {
+  final name = value.trim().replaceAll(RegExp('[أإآ]'), 'ا');
+  return name == 'صنعاء' || name == 'امانة العاصمة' || name == 'امانه العاصمه';
+}
+
 class AddressesScreen extends ConsumerWidget {
   const AddressesScreen({super.key});
 
@@ -138,13 +143,15 @@ class AddressesScreen extends ConsumerWidget {
                                                           fontWeight: FontWeight.w700,
                                                         ),
                                                       ),
-                                                      const SizedBox(height: 3),
-                                                      Text(
-                                                        a.addressLine,
-                                                        maxLines: 2,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        style: const TextStyle(fontSize: 10),
-                                                      ),
+                                                      if (a.addressLine.trim().isNotEmpty) ...[
+                                                        const SizedBox(height: 3),
+                                                        Text(
+                                                          a.addressLine,
+                                                          maxLines: 2,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: const TextStyle(fontSize: 10),
+                                                        ),
+                                                      ],
                                                       const SizedBox(height: 4),
                                                       Text(
                                                         '${a.recipientName} • ${a.phone}',
@@ -233,7 +240,10 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
   late final TextEditingController phone;
   late final TextEditingController maps;
   String? cityId;
+  String selectedCityName = '';
   bool busy = false;
+
+  bool get outsideSanaa => cityId != null && cityId!.isNotEmpty && !_isSanaaName(selectedCityName);
 
   @override
   void initState() {
@@ -244,6 +254,7 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
     phone = TextEditingController(text: a?.phone ?? '');
     maps = TextEditingController(text: a?.googleMapsUrl ?? '');
     cityId = a?.cityId;
+    selectedCityName = a?.cityName ?? '';
   }
 
   @override
@@ -293,17 +304,19 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
   Future<void> save() async {
     if (busy) return;
     final governorate = cityId?.trim() ?? '';
-    final detailedAddress = line.text.trim();
+    final detailedAddress = outsideSanaa ? '' : line.text.trim();
     final recipientName = recipient.text.trim();
     final recipientPhone = phone.text.trim();
 
     if (governorate.isEmpty ||
-        detailedAddress.isEmpty ||
+        (!outsideSanaa && detailedAddress.isEmpty) ||
         recipientName.isEmpty ||
         recipientPhone.isEmpty) {
       showSpikeToast(
         context,
-        'أكمل المحافظة والعنوان التفصيلي واسم المستلم ورقمه',
+        outsideSanaa
+            ? 'أكمل المحافظة واسم المستلم ورقمه'
+            : 'أكمل المحافظة والعنوان التفصيلي واسم المستلم ورقمه',
       );
       return;
     }
@@ -377,121 +390,140 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                   message: e.toString(),
                   onRetry: () => ref.invalidate(citiesProvider),
                 ),
-                data: (list) => ListView(
-                  padding: const EdgeInsets.fromLTRB(17, 0, 17, 20),
-                  children: [
-                    const Text(
-                      'تفاصيل العنوان',
-                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      height: 54,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: card,
-                        border: Border.all(color: Theme.of(context).dividerColor),
-                        borderRadius: BorderRadius.circular(15),
+                data: (list) {
+                  if (cityId != null && selectedCityName.isEmpty) {
+                    for (final c in list) {
+                      if (c.id == cityId) {
+                        selectedCityName = c.name;
+                        break;
+                      }
+                    }
+                  }
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(17, 0, 17, 20),
+                    children: [
+                      const Text(
+                        'تفاصيل العنوان',
+                        style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
                       ),
-                      child: Row(
-                        children: [
-                          const SizedBox(
-                            width: 30,
-                            child: Icon(LucideIcons.map, size: 19, color: spikeMuted),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: cityId,
-                                isExpanded: true,
-                                hint: Text(
-                                  'المحافظة *',
-                                  style: spikeTextStyle(fontSize: 13, color: spikeMuted),
+                      const SizedBox(height: 12),
+                      Container(
+                        height: 54,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: card,
+                          border: Border.all(color: Theme.of(context).dividerColor),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(
+                              width: 30,
+                              child: Icon(LucideIcons.map, size: 19, color: spikeMuted),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: cityId,
+                                  isExpanded: true,
+                                  hint: Text(
+                                    'المحافظة *',
+                                    style: spikeTextStyle(fontSize: 13, color: spikeMuted),
+                                  ),
+                                  items: list
+                                      .map(
+                                        (c) => DropdownMenuItem(
+                                          value: c.id,
+                                          child: Text(c.name, style: spikeTextStyle(fontSize: 13)),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (v) {
+                                    final city = list.where((c) => c.id == v).firstOrNull;
+                                    setState(() {
+                                      cityId = v;
+                                      selectedCityName = city?.name ?? '';
+                                    });
+                                  },
                                 ),
-                                items: list
-                                    .map(
-                                      (c) => DropdownMenuItem(
-                                        value: c.id,
-                                        child: Text(c.name, style: spikeTextStyle(fontSize: 13)),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (v) => setState(() => cityId = v),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _ReferenceField(
-                      controller: line,
-                      icon: LucideIcons.house,
-                      hint: 'العنوان التفصيلي *',
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'بيانات المستلم',
-                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 12),
-                    _ReferenceField(
-                      controller: recipient,
-                      icon: LucideIcons.user,
-                      hint: 'اسم المستلم *',
-                    ),
-                    const SizedBox(height: 12),
-                    _ReferenceField(
-                      controller: phone,
-                      icon: LucideIcons.phone,
-                      hint: 'رقم المستلم *',
-                      keyboard: TextInputType.phone,
-                      ltr: true,
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'الموقع',
-                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 12),
-                    _ReferenceField(
-                      controller: maps,
-                      icon: LucideIcons.mapPin,
-                      hint: 'رابط Google Maps (اختياري)',
-                      keyboard: TextInputType.url,
-                      ltr: true,
-                    ),
-                    const SizedBox(height: 7),
-                    const Text(
-                      'Google Maps اختياري ويساعد على حساب التوصيل بدقة أكبر.',
-                      style: TextStyle(fontSize: 10, color: spikeMuted, height: 1.45),
-                    ),
-                    const SizedBox(height: 22),
-                    SizedBox(
-                      height: 48,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: spikeYellow,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                          ],
                         ),
-                        onPressed: busy ? null : save,
-                        child: busy
-                            ? const SizedBox.square(
-                                dimension: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text(
-                                'حفظ العنوان',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                              ),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(height: 12),
+                      if (outsideSanaa)
+                        const _ShippingOfficeInfoBanner()
+                      else
+                        _ReferenceField(
+                          controller: line,
+                          icon: LucideIcons.house,
+                          hint: 'العنوان التفصيلي *',
+                        ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'بيانات المستلم',
+                        style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 12),
+                      _ReferenceField(
+                        controller: recipient,
+                        icon: LucideIcons.user,
+                        hint: 'اسم المستلم *',
+                      ),
+                      const SizedBox(height: 12),
+                      _ReferenceField(
+                        controller: phone,
+                        icon: LucideIcons.phone,
+                        hint: 'رقم المستلم *',
+                        keyboard: TextInputType.phone,
+                        ltr: true,
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'الموقع',
+                        style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 12),
+                      _ReferenceField(
+                        controller: maps,
+                        icon: LucideIcons.mapPin,
+                        hint: 'رابط Google Maps (اختياري)',
+                        keyboard: TextInputType.url,
+                        ltr: true,
+                      ),
+                      const SizedBox(height: 7),
+                      const Text(
+                        'Google Maps اختياري ويساعد على حساب التوصيل بدقة أكبر.',
+                        style: TextStyle(fontSize: 10, color: spikeMuted, height: 1.45),
+                      ),
+                      const SizedBox(height: 22),
+                      SizedBox(
+                        height: 48,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: spikeYellow,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: busy ? null : save,
+                          child: busy
+                              ? const SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text(
+                                  'حفظ العنوان',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -499,6 +531,36 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
       ),
     );
   }
+}
+
+class _ShippingOfficeInfoBanner extends StatelessWidget {
+  const _ShippingOfficeInfoBanner();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF242424)
+              : const Color(0xFFF3F3F3),
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(LucideIcons.info, size: 19, color: spikeMuted),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'التوصيل يتم إلى مكاتب الشحن المتوفرة في المحافظة.',
+                style: TextStyle(fontSize: 11, height: 1.5),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _AddressHead extends StatelessWidget {
