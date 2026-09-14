@@ -452,15 +452,14 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      if (outsideSanaa)
-                        const _ShippingOfficeInfoBanner()
-                      else
+                      if (!outsideSanaa) ...[
+                        const SizedBox(height: 12),
                         _ReferenceField(
                           controller: line,
                           icon: LucideIcons.house,
                           hint: 'العنوان التفصيلي *',
                         ),
+                      ],
                       const SizedBox(height: 20),
                       const Text(
                         'بيانات المستلم',
@@ -531,36 +530,6 @@ class _AddressFormScreenState extends ConsumerState<AddressFormScreen> {
       ),
     );
   }
-}
-
-class _ShippingOfficeInfoBanner extends StatelessWidget {
-  const _ShippingOfficeInfoBanner();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF242424)
-              : const Color(0xFFF3F3F3),
-          border: Border.all(color: Theme.of(context).dividerColor),
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: const Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(LucideIcons.info, size: 19, color: spikeMuted),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'التوصيل يتم إلى مكاتب الشحن المتوفرة في المحافظة.',
-                style: TextStyle(fontSize: 11, height: 1.5),
-              ),
-            ),
-          ],
-        ),
-      );
 }
 
 class _AddressHead extends StatelessWidget {
