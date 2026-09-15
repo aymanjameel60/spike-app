@@ -56,6 +56,28 @@ class _OrdersGateScreenState extends ConsumerState<OrdersGateScreen> {
     );
   }
 
+  Widget _head(BuildContext context, String title) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+            SpikeSpacing.page, SpikeSpacing.sm, SpikeSpacing.page, 0),
+        child: SizedBox(
+          height: 60,
+          child: Stack(alignment: Alignment.center, children: [
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
+            Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                    width: 50,
+                    height: 40,
+                    child: IconButton(
+                        onPressed: () => context.canPop()
+                            ? context.pop()
+                            : context.go('/profile'),
+                        icon: const Icon(LucideIcons.arrowRight, size: 22)))),
+          ]),
+        ),
+      );
   Widget _orders(BuildContext context) {
     final state = ref.watch(ordersProvider);
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -71,9 +93,11 @@ class _OrdersGateScreenState extends ConsumerState<OrdersGateScreen> {
           ),
           child: Row(
             children: [
-              _tab('الحالية', !previous, () => setState(() => previous = false), dark),
+              _tab('الحالية', !previous, () => setState(() => previous = false),
+                  dark),
               const SizedBox(width: 9),
-              _tab('السابقة', previous, () => setState(() => previous = true), dark),
+              _tab('السابقة', previous, () => setState(() => previous = true),
+                  dark),
             ],
           ),
         ),
@@ -86,7 +110,8 @@ class _OrdersGateScreenState extends ConsumerState<OrdersGateScreen> {
             ),
             data: (orders) {
               final list = orders
-                  .where((order) => previous ? _done(order.status) : !_done(order.status))
+                  .where((order) =>
+                      previous ? _done(order.status) : !_done(order.status))
                   .toList();
               if (list.isEmpty) {
                 return SpikeEmptyState(
@@ -263,7 +288,7 @@ class _OrderCard extends StatelessWidget {
             ),
             if (needsReceipt) ...[
               const SizedBox(height: 10),
-              _ReceiptBadge(
+              const _ReceiptBadge(
                 color: spikeRed,
                 icon: LucideIcons.receipt,
                 text: 'سند الحوالة مطلوب',
@@ -315,7 +340,8 @@ class _OrderCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(LucideIcons.chevronLeft, size: 18, color: spikeMuted),
+                const Icon(LucideIcons.chevronLeft,
+                    size: 18, color: spikeMuted),
               ],
             ),
           ],

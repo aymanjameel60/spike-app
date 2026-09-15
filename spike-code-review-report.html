@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>تقرير فحص وتقييم كود تطبيق Spike</title>
+<link rel="stylesheet" href="spike-report-fonts.css">
+<style>
+  @page { size: 210mm 297mm; margin: 0; }
+  :root {
+    --accent: #94050A;
+    --text: #1B1C1E;
+    --muted: #63666B;
+    --panel: #F1F1F1;
+    --line: #DDDEE0;
+  }
+  html, body { margin: 0; padding: 0; background: #FFFFFF; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "GraphikArabic", "SF Arabic", "Geeza Pro", sans-serif;
+    color: var(--text);
+    font-size: 10.5pt;
+    line-height: 1.75;
+  }
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 15mm 16mm 13mm 16mm;
+    background: #FFFFFF;
+    page-break-after: always;
+    position: relative;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  code, .ltr {
+    direction: ltr; unicode-bidi: isolate;
+    font-family: "SF Mono", "Menlo", monospace;
+    font-size: 9pt;
+    background: var(--panel);
+    padding: 0 4px; border-radius: 3px;
+    color: var(--accent);
+  }
+
+  /* ─── Cover ─── */
+  .cover { display: flex; flex-direction: column; }
+  .kicker {
+    color: var(--accent); font-weight: 600; font-size: 12pt;
+    letter-spacing: 1px; margin: 8mm 0 2mm;
+  }
+  .cover-rule { width: 34mm; height: 1.2mm; background: var(--accent); margin-bottom: 10mm; }
+  .cover h1 { font-size: 34pt; font-weight: 700; line-height: 1.25; margin: 0 0 4mm; }
+  .cover .sub { font-size: 14pt; font-weight: 500; color: var(--muted); margin: 0 0 14mm; }
+  .meta { display: flex; gap: 6mm; margin-bottom: 12mm; }
+  .meta .chip {
+    background: var(--panel); border-radius: 3mm;
+    padding: 3mm 5mm; font-size: 9.5pt; color: var(--muted);
+  }
+  .meta .chip b { color: var(--text); font-weight: 600; display: block; font-size: 10.5pt; }
+  .summary {
+    background: var(--panel); border-radius: 3mm;
+    padding: 6mm 7mm; margin-top: 4mm;
+  }
+  .summary h3 { margin: 0 0 3mm; font-size: 12pt; font-weight: 700; color: var(--accent); }
+  .summary p { margin: 0 0 2.5mm; }
+  .summary p:last-child { margin-bottom: 0; }
+  .verdict {
+    margin-top: 10mm; border: 0.4mm solid var(--accent); border-radius: 3mm;
+    padding: 5mm 7mm; display: flex; align-items: center; gap: 6mm;
+  }
+  .verdict .badge {
+    background: var(--accent); color: #fff; font-weight: 700;
+    border-radius: 2mm; padding: 2mm 5mm; font-size: 12pt; white-space: nowrap;
+  }
+  .verdict p { margin: 0; font-weight: 500; }
+  .cover-foot { margin-top: auto; color: var(--muted); font-size: 9.5pt; border-top: 0.3mm solid var(--line); padding-top: 4mm; }
+
+  /* ─── Body ─── */
+  h2 {
+    font-size: 16pt; font-weight: 700; margin: 0 0 5mm;
+    padding-bottom: 2.5mm; border-bottom: 0.5mm solid var(--accent);
+    display: flex; align-items: baseline; gap: 3mm;
+  }
+  h2 .num { color: var(--accent); font-size: 13pt; }
+  h2:first-child { margin-top: 0; }
+  .sect { margin-bottom: 9mm; }
+  h3 { font-size: 11.5pt; font-weight: 700; margin: 6mm 0 2.5mm; }
+  p { margin: 0 0 3mm; }
+  ul { margin: 0 0 3mm; padding-right: 6mm; }
+  li { margin-bottom: 1.8mm; }
+  .card {
+    background: var(--panel); border-radius: 2.5mm;
+    padding: 4.5mm 5.5mm; margin-bottom: 4mm;
+  }
+  .card .tag {
+    display: inline-block; font-weight: 700; font-size: 9pt;
+    border-radius: 2mm; padding: 0.5mm 3mm; margin-left: 2mm; color: #fff;
+  }
+  .tag.p1 { background: var(--accent); }
+  .tag.p2 { background: #B0474C; }
+  .tag.info { background: #63666B; }
+  .card h4 { display: inline; font-size: 11pt; font-weight: 700; margin: 0; }
+  .card p { margin: 2mm 0 0; }
+  table { width: 100%; border-collapse: collapse; margin: 3mm 0 4mm; }
+  th, td { border: 0.3mm solid var(--line); padding: 2.5mm 3.5mm; text-align: right; vertical-align: top; font-size: 10pt; }
+  th { background: var(--panel); font-weight: 700; }
+  .ok { color: #0E6B3F; font-weight: 600; }
+  .foot { color: var(--muted); font-size: 9pt; border-top: 0.3mm solid var(--line); padding-top: 3mm; margin-top: auto; }
+
+  @media screen {
+    html { background: #E8E8E8; }
+    body { width: 210mm; margin: 0 auto; }
+    .page { margin: 6mm auto; box-shadow: 0 2mm 6mm rgba(0,0,0,0.15); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ الصفحة 1: الغلاف ═══════════ -->
+<div class="page cover">
+  <div class="kicker">تقرير فحص وتقييم كود</div>
+  <div class="cover-rule"></div>
+  <h1>تطبيق Spike؛ Spike</h1>
+  <p class="sub">مراجعة التغييرات المسحوبة وتقييم شامل لجودة الكود قبل TestFlight</p>
+
+  <div class="meta">
+    <div class="chip"><b>التاريخ</b>10 سبتمبر 2026</div>
+    <div class="chip"><b>آخر كوميت مفحوص</b><span class="ltr">6cffc64</span></div>
+    <div class="chip"><b>البيئة</b>Flutter 3.44.4 · Xcode 26.1 · iOS Simulator</div>
+    <div class="chip"><b>النطاق</b>45 ملفًا في <span class="ltr">lib/</span> + 4 ملفات اختبار</div>
+  </div>
+
+  <div class="summary">
+    <h3>الملخص التنفيذي</h3>
+    <p>سُحبت 8 كوميتات جديدة (حذف العناوين بأمان، توجيه الدفع حسب العنوان، تحسين فك تشفير صور المنتجات، أفاتار الملف الشخصي). التطبيق بُني وشُغّل على محاكي iPhone 17 Pro بلا أي استثناءات runtime والواجهة سليمة.</p>
+    <p>الكود صحي ومُعتنى به وجاهز لـ TestFlight اليوم، مع خطأين حقيقيين في <span class="ltr">checkout_screen.dart</span> يستحقان إصلاحًا قبل رفع جديد، ومشكلتين معماريتين (P1) ستظهران مع نمو المحتوى.</p>
+  </div>
+
+  <div class="verdict">
+    <span class="badge">الحكم: جاهز لـ TestFlight</span>
+    <p>لا شيء يمنع البناء والرفع؛ الإصلاحات الموصى بها ليست عوائق</p>
+  </div>
+
+  <div class="cover-foot">أُعدّ هذا التقرير آليًا بفحص التحليل الساكن ومراجعة معمارية شاملة؛ التاريخ أعلاه يعكس تاريخ الفحص.</div>
+</div>
+
+<!-- ═══════════ الصفحة 2: السحب والتشغيل + مراجعة التغييرات ═══════════ -->
+<div class="page">
+  <div class="sect">
+    <h2><span class="num">١</span>السحب والتشغيل على المحاكي</h2>
+    <ul>
+      <li>سحب fast-forward من <span class="ltr">269fb2f</span> إلى <span class="ltr">6cffc64</span>: 8 كوميتات، 5 ملفات في <span class="ltr">lib/</span> (480 إضافة / 274 حذفًا).</li>
+      <li>البناء نجح في 53 ثانية، لا استثناءات runtime في السجل، والواجهة تُعرض سليمة بتنسيق RTL عربي صحيح على iPhone 17 Pro.</li>
+      <li>تعديل محلي غير مُلتزَم على <span class="ltr">project.pbxproj</span> باقٍ (اسم العرض «متجر Spike»، هدف النشر 15.6)؛ لم يتأثر بالسحب.</li>
+    </ul>
+  </div>
+
+  <div class="sect">
+    <h2><span class="num">٢</span>مراجعة التغييرات المسحوبة</h2>
+
+    <div class="card">
+      <span class="tag p1">خطأ 1</span><h4>‏<span class="ltr">setState</span> بعد dispose محتمل</h4>
+      <p>في <span class="ltr">checkout_screen.dart:70-90</span> داخل <span class="ltr">_chooseAddress</span>: بعد <span class="ltr">await context.push('/addresses')</span> يستدعي السطر 83 ‏<span class="ltr">setState</span> والسطر 72 ‏<span class="ltr">ref.read</span> بلا فحص <span class="ltr">mounted</span>، بينما السطران 75 و89 محميان. لو استُبدل مسار التنقل أثناء فتح شاشة العناوين (تسجيل خروج أو انتهاء جلسة) ينهار التطبيق. الحل: <span class="ltr">if (!mounted) return;</span> بعد كل await.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag p1">خطأ 2</span><h4>نداءات شبكة بلا معالجة أخطاء</h4>
+      <p>في نفس الدالة: <span class="ltr">addresses()</span> و<span class="ltr">quote()</span> غير محاطتين بـ <span class="ltr">try/catch</span>. فشل الشبكة يعني استثناء غير معالَجًا وزرًّا يبدو ميتًا بلا رسالة. كل الدوال المجاورة (<span class="ltr">_load</span> و<span class="ltr">_submit</span>) تلتقط وتعرض toast؛ نفس النمط يُطبَّق هنا.</p>
+    </div>
+
+    <h3>ملاحظات أسلوبية (حكم لا خرق)</h3>
+    <ul>
+      <li>وزن الخط <span class="ltr">w400</span> المضاف في <span class="ltr">async_state_widgets.dart:39</span> يتعارض مع ثيم <span class="ltr">snackBarTheme</span> ‏(<span class="ltr">w700</span>)؛ الأصح تعديل الثيم نفسه وإسقاط النسخة المحلية.</li>
+      <li>منطق «حذف العنوان ثم تفعيل البديل ثم إعادة الجلب» في <span class="ltr">addresses_screen.dart:58-65</span> سياسة عمل داخل الواجهة؛ تستحق الانتقال إلى المستودع؛ ورسالة «تعذر حذف العنوان» قد تظهر رغم نجاح الحذف لو فشل الجلب التالي.</li>
+      <li>لا تسريب لـ controllers، ولا خرق RTL، وتصغير فك الصور في <span class="ltr">product_card.dart</span> سليم (الأبعاد تغطي نسبة البطاقة بأمان مع <span class="ltr">BoxFit.contain</span>).</li>
+    </ul>
+  </div>
+
+  <div class="foot">تقرير فحص كود تطبيق Spike · <span class="ltr">6cffc64</span> · 10 سبتمبر 2026؛ صفحة 2 من 4</div>
+</div>
+
+<!-- ═══════════ الصفحة 3: تقييم المشروع ═══════════ -->
+<div class="page">
+  <div class="sect">
+    <h2><span class="num">٣</span>تقييم المشروع الكامل</h2>
+
+    <h3>نقاط القوة</h3>
+    <ul>
+      <li>تنظيم <span class="ltr">features/*/{data,presentation}</span> متسق، بلا god-widgets رغم حجم بعض الشاشات.</li>
+      <li>استخدام Riverpod منضبط: ‏<span class="ltr">autoDispose</span> للمزودات المؤقتة، و<span class="ltr">invalidate</span> بعد كل تعديل، وفصل صحيح بين <span class="ltr">watch</span> و<span class="ltr">read</span>.</li>
+      <li>تخزين token آمن في <span class="ltr">flutter_secure_storage</span> مع كاش offline للملف الشخصي، ودمج سلة الضيف عند الدخول.</li>
+      <li>اختبارات regression وgolden جادة (تنقل الدخول، شاشة العناوين بخطوط حقيقية).</li>
+      <li>ثيم مبني على رموز، ولا أسرار مُلتزَمة في المستودع إطلاقًا.</li>
+    </ul>
+
+    <h3>جدول الضعف مرتبًا بالأولوية</h3>
+    <table>
+      <tr><th style="width:14%">الدرجة</th><th style="width:24%">المشكلة</th><th>التفصيل</th></tr>
+      <tr><td><b>P1</b></td><td>جلب الكتالوج كاملًا وفلترته محليًا</td><td>البحث والعروض وتفاصيل المتجر تُنزِّل كل المنتجات ثم تُرشِّح محليًا؛ بلا pagination ولا بحث خادمي؛ ينهار مع نمذة المنتجات (<span class="ltr">catalog_repository.dart:47-53</span>)</td></tr>
+      <tr><td><b>P1</b></td><td>ابتلاع أخطاء الشبكة</td><td><span class="ltr">_cachedGet</span> يعيد ‏<code>{}</code> عند الفشل؛ الفارغ لا يُميَّز عن الخطأ والكاش لا ينتهي صلاحيته أبدًا</td></tr>
+      <tr><td><b>P2</b></td><td>لا معالج 401 عام</td><td>انتهاء الجلسة يظهر كأخطاء خام في معظم الشاشات؛ المعالجة موجودة في موضعين فقط</td></tr>
+      <tr><td><b>P2</b></td><td>مساعدات مكررة متباعدة</td><td><span class="ltr">_money</span> ×4، ‏<span class="ltr">_cachedGet</span> ×2، و<span class="ltr">_absoluteImage</span> في cart ناقص فرع Supabase (صور سلة ستتعطل لمسارات bucket)</td></tr>
+      <tr><td><b>P2</b></td><td>بيانات خام إلى الواجهات</td><td>الطلبات والتقييمات والإشعارات تنقل <span class="ltr">Map</span> غير مطبوع إلى الواجهات</td></tr>
+      <tr><td><b>P3</b></td><td>حجم وتغطية</td><td>شاشة العناوين 801 سطر، ‏<span class="ltr">providers.dart</span> ملف مجمّع، اختبارات رقيقة (لا تغطي المستودعات ولا السلة)، وتبعيات متأخرة بإصدار رئيسي (Riverpod 2 وgo_router 14)</td></tr>
+    </table>
+
+    <h3>التحليل الساكن (<span class="ltr">flutter analyze</span>)</h3>
+    <p>19 ملاحظة: 4 تحذيرات لعناصر ميتة (<span class="ltr">_guest</span> و<span class="ltr">_GuestCart</span> في السلة، ‏<span class="ltr">_reset</span> و<span class="ltr">_noop</span> في العروض؛ بقايا تسليم الضيف المحذوف) والباقي معلومات بسيطة (const، و<span class="ltr">value→initialValue</span> المهجورة في شاشة الطلبات). لا أخطاء.</p>
+  </div>
+
+  <div class="foot">تقرير فحص كود تطبيق Spike · <span class="ltr">6cffc64</span> · 10 سبتمبر 2026؛ صفحة 3 من 4</div>
+</div>
+
+<!-- ═══════════ الصفحة 4: الخلاصة ═══════════ -->
+<div class="page">
+  <div class="sect">
+    <h2><span class="num">٤</span>الخلاصة وترتيب الإصلاح الموصى به</h2>
+    <p>الكود سليم ومُعتنى به وجاهز لـ TestFlight اليوم؛ لا شيء يمنع البناء. الخطآن في شاشة الدفع يُصلحان في دقائق، أما مشكلتا P1 فقيد معماري يظهر مع نمو المحتوى وليس عطلًا اليوم.</p>
+
+    <table>
+      <tr><th style="width:10%">#</th><th style="width:52%">الإصلاح</th><th>الأولوية</th></tr>
+      <tr><td>1</td><td>حارس <span class="ltr">mounted</span> + ‏<span class="ltr">try/catch</span> في <span class="ltr">checkout_screen.dart:70-90</span></td><td><span class="ok">فوري قبل الرفع</span></td></tr>
+      <tr><td>2</td><td>توحيد <span class="ltr">_money</span> و<span class="ltr">_absoluteImage</span> (وإصلاح فرع Supabase الناقص في السلة)</td><td>سريع</td></tr>
+      <tr><td>3</td><td>معالج 401 عام عبر Dio interceptor يوجّه لتسجيل الدخول</td><td>قبل الإطلاق العام</td></tr>
+      <tr><td>4</td><td>حذف العناصر الميتة الأربعة في السلة والعروض</td><td>سريع</td></tr>
+      <tr><td>5</td><td>بحث وpagination خادمي بدل جلب الكتالوج كاملًا</td><td>مع نمو المحتوى</td></tr>
+    </table>
+
+    <h3>التفاصيل التشغيلية</h3>
+    <ul>
+      <li>جلسة التشغيل على المحاكي أُوقفت بعد الفحص بنجاح (التطبيق والبناء أُنهيا معًا).</li>
+      <li>اسم العرض «متجر Spike» وهدف النشر 15.6 ما زالا في تعديل محلي غير مُلتزَم؛ يُلتزمان قبل بناء IPA القادم.</li>
+      <li>أُعدّ التقرير من مراجعة كود المصدر المفتوح محليًا؛ لا يتضمن أي بيانات حساسة.</li>
+    </ul>
+  </div>
+
+  <div class="foot">تقرير فحص كود تطبيق Spike · <span class="ltr">6cffc64</span> · 10 سبتمبر 2026؛ صفحة 4 من 4</div>
+</div>
+
+</body>
+</html>
