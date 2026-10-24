@@ -637,15 +637,18 @@ class _Item extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
+                        color: spikeRed,
                       ),
                     ),
                     if (discount > 0) ...[
                       const SizedBox(width: 7),
                       Text(
                         money(item.originalPrice),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 9,
-                          color: spikeRed,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.black,
                           decoration: TextDecoration.lineThrough,
                         ),
                       ),
