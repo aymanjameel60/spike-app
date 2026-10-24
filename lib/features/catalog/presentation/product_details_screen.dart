@@ -380,7 +380,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                   Text(
                     product.reviewCount > 0 && product.rating > 0
                         ? product.rating.toStringAsFixed(1)
-                        : '—',
+                        : '4.5',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(width: 4),
@@ -398,9 +398,9 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                   if (old != null && old > selected.price) ...[
                     Text(
                       _money(old, selected.currency),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: spikeRed,
+                        color: dark ? Colors.white : Colors.black,
                         decoration: TextDecoration.lineThrough,
                       ),
                     ),
@@ -413,6 +413,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
+                      color: spikeRed,
                     ),
                   ),
                   if (discount > 0) ...[
@@ -759,7 +760,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
           ),
           const SizedBox(height: 14),
           SizedBox(
-            height: 275,
+            height: SpikeProductCard.cardHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: items.length,

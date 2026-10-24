@@ -199,7 +199,7 @@ class _ProductsStrip extends StatelessWidget {
       return const SpikeEmptyState(message: 'لا توجد عناصر في هذا القسم');
     }
     return SizedBox(
-      height: 246,
+      height: SpikeProductCard.cardHeight,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 17),
