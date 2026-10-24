@@ -94,8 +94,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const _BannerPlaceholder(),
                 _SectionTitle(
                   title: 'تسوق حسب الفئة',
-                  showAll: data.categories.isNotEmpty,
-                  onShowAll: () => context.push('/categories'),
+                  showAll: false,
                 ),
                 _CategoriesGrid(
                   categories: data.categories.take(8).toList(),
