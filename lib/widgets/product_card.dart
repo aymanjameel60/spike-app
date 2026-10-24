@@ -16,6 +16,8 @@ class SpikeProductCard extends StatefulWidget {
     this.isFavorite = false,
   });
 
+  static const double cardHeight = 216;
+
   final ProductModel product;
   final VoidCallback? onTap, onAdd, onFavorite, onStore;
   final bool isFavorite;
@@ -208,7 +210,7 @@ class _SpikeProductCardState extends State<SpikeProductCard> {
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 7),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                 child: Text(
                   product.name,
                   maxLines: 1,
@@ -235,6 +237,7 @@ class _SpikeProductCardState extends State<SpikeProductCard> {
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 12,
+                                  color: spikeRed,
                                   ),
                                 ),
                               ),
@@ -245,10 +248,10 @@ class _SpikeProductCardState extends State<SpikeProductCard> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.left,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 10,
-                                    color: spikeRed,
+                                    color: dark ? Colors.white : Colors.black,
                                     decoration: TextDecoration.lineThrough,
                                   ),
                                 ),
@@ -261,6 +264,7 @@ class _SpikeProductCardState extends State<SpikeProductCard> {
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
+                            color: spikeRed,
                             ),
                           ))
                     : const Text(
@@ -273,9 +277,9 @@ class _SpikeProductCardState extends State<SpikeProductCard> {
                         ),
                       ),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
               Padding(
-                padding: const EdgeInsets.fromLTRB(11, 0, 11, 4),
+                padding: const EdgeInsets.fromLTRB(11, 0, 11, 3),
                 child: Directionality(
                   textDirection: TextDirection.ltr,
                   child: Row(
@@ -290,9 +294,9 @@ class _SpikeProductCardState extends State<SpikeProductCard> {
                           ),
                           const SizedBox(width: 3),
                           Text(
-                            product.reviewCount > 0
+                            product.reviewCount > 0 && product.rating > 0
                                 ? product.rating.toStringAsFixed(1)
-                                : '—',
+                                : '4.5',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
