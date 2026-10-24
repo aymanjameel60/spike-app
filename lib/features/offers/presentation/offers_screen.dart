@@ -329,7 +329,7 @@ class _OffersScreenState extends ConsumerState<OffersScreen> {
                           crossAxisCount: 2,
                           crossAxisSpacing: 11,
                           mainAxisSpacing: 11,
-                          mainAxisExtent: 246,
+                          mainAxisExtent: SpikeProductCard.cardHeight,
                         ),
                         itemBuilder: (context, index) {
                           final product = list[index];
