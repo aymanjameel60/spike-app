@@ -116,37 +116,39 @@ class _MainShellState extends ConsumerState<MainShell> {
     return Scaffold(
       endDrawer: const _SpikeDrawer(),
       body: widget.child,
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          height: 76,
-          decoration: BoxDecoration(
-            color: dark ? spikeDarkPanel : Colors.white,
-            border: Border(
-              top: BorderSide(color: Theme.of(context).dividerColor),
-            ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: dark ? spikeDarkPanel : Colors.white,
+          border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor),
           ),
-          child: Builder(
-            builder: (shellContext) => Row(
-              children: [
-                _item(shellContext, 0, LucideIcons.userRound, '/profile'),
-                _item(
-                  shellContext,
-                  1,
-                  LucideIcons.badgePercent,
-                  '/offers',
-                  badge: unseenOffers,
-                  beforeNavigate: () => _markOffersSeen(offerProducts),
-                ),
-                _item(shellContext, 2, LucideIcons.home, '/'),
-                _item(
-                  shellContext,
-                  3,
-                  LucideIcons.shoppingBag,
-                  '/cart',
-                  badge: cartCount,
-                ),
-              ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 76,
+            child: Builder(
+              builder: (shellContext) => Row(
+                children: [
+                  _item(shellContext, 0, LucideIcons.userRound, '/profile'),
+                  _item(
+                    shellContext,
+                    1,
+                    LucideIcons.badgePercent,
+                    '/offers',
+                    badge: unseenOffers,
+                    beforeNavigate: () => _markOffersSeen(offerProducts),
+                  ),
+                  _item(shellContext, 2, LucideIcons.home, '/'),
+                  _item(
+                    shellContext,
+                    3,
+                    LucideIcons.shoppingBag,
+                    '/cart',
+                    badge: cartCount,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
