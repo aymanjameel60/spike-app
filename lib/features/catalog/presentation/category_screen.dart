@@ -670,7 +670,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           crossAxisCount: 2,
                           crossAxisSpacing: 11,
                           mainAxisSpacing: 11,
-                          mainAxisExtent: 246,
+                          mainAxisExtent: SpikeProductCard.cardHeight,
                         ),
                         itemBuilder: (_, index) {
                           final product = visibleProducts[index];
