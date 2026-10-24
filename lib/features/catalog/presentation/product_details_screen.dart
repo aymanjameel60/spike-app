@@ -398,9 +398,9 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                   if (old != null && old > selected.price) ...[
                     Text(
                       _money(old, selected.currency),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: spikeRed,
+                        color: dark ? Colors.white : Colors.black,
                         decoration: TextDecoration.lineThrough,
                       ),
                     ),
@@ -759,7 +759,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
           ),
           const SizedBox(height: 14),
           SizedBox(
-            height: 275,
+            height: SpikeProductCard.cardHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: items.length,
