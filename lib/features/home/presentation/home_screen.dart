@@ -404,7 +404,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }) {
     final favorites = ref.watch(wishlistIdsProvider).valueOrNull ?? <String>{};
     return SizedBox(
-      height: 246,
+      height: SpikeProductCard.cardHeight,
       child: products.isEmpty
           ? SpikeEmptyState(message: emptyMessage)
           : ListView.separated(
@@ -1243,7 +1243,7 @@ class _HomeSkeletonState extends State<_HomeSkeleton>
               const SizedBox(height: 18),
               _SkeletonTitle(color: color, leftWidth: 0, rightWidth: 90),
               SizedBox(
-                height: 246,
+                height: SpikeProductCard.cardHeight,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 17),
