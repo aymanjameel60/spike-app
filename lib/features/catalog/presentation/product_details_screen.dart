@@ -380,7 +380,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                   Text(
                     product.reviewCount > 0 && product.rating > 0
                         ? product.rating.toStringAsFixed(1)
-                        : '—',
+                        : '4.5',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(width: 4),
@@ -413,6 +413,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
+                      color: spikeRed,
                     ),
                   ),
                   if (discount > 0) ...[
