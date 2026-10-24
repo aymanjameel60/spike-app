@@ -645,7 +645,7 @@ class _Item extends StatelessWidget {
                         money(item.originalPrice),
                         style: const TextStyle(
                           fontSize: 9,
-                          color: spikeMuted,
+                          color: spikeRed,
                           decoration: TextDecoration.lineThrough,
                         ),
                       ),

@@ -400,7 +400,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                       _money(old, selected.currency),
                       style: const TextStyle(
                         fontSize: 11,
-                        color: spikeMuted,
+                        color: spikeRed,
                         decoration: TextDecoration.lineThrough,
                       ),
                     ),

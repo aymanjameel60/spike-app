@@ -39,9 +39,11 @@ class ProfileScreen extends ConsumerWidget {
           return ListView(
             padding: EdgeInsets.zero,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                child: Row(
+              InkWell(
+                onTap: () => context.push(u == null ? '/login' : '/personal-data'),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                  child: Row(
                   children: [
                     ClipOval(
                       child: SizedBox(
@@ -118,20 +120,16 @@ class ProfileScreen extends ConsumerWidget {
                               ],
                             ),
                     ),
+                    const SizedBox(width: 8),
+                    const Icon(LucideIcons.chevronLeft, size: 22),
                   ],
+                  ),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 17),
                 child: Column(
                   children: [
-                    _row(
-                      context,
-                      LucideIcons.userRound,
-                      'البيانات الشخصية',
-                      () => context.push('/personal-data'),
-                    ),
-                    const SizedBox(height: 16),
                     _row(
                       context,
                       LucideIcons.store,

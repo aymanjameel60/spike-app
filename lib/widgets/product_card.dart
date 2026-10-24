@@ -248,7 +248,7 @@ class _SpikeProductCardState extends State<SpikeProductCard> {
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 10,
-                                    color: spikeMuted,
+                                    color: spikeRed,
                                     decoration: TextDecoration.lineThrough,
                                   ),
                                 ),
@@ -273,9 +273,9 @@ class _SpikeProductCardState extends State<SpikeProductCard> {
                         ),
                       ),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 3),
               Padding(
-                padding: const EdgeInsets.fromLTRB(11, 0, 11, 10),
+                padding: const EdgeInsets.fromLTRB(11, 0, 11, 4),
                 child: Directionality(
                   textDirection: TextDirection.ltr,
                   child: Row(
